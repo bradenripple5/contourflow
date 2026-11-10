@@ -8,4 +8,5 @@ ContourFlow/Web/contourflow.html
 build/
 Payload/
 *.ipa
+dist/
 DerivedData/
