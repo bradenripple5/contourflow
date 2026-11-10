@@ -1,0 +1,3521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Contour Draw</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            box-sizing: border-box;
+            background-color: #0d1117;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #f0f6fc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .panel {
+            text-align: center;
+            margin-bottom: 16px;
+            background: #161b22;
+            padding: 15px 25px;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 95vw;
+            box-sizing: border-box;
+        }
+        .deck-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px 20px;
+            margin-top: 10px;
+        }
+        h1 { font-size: 1.3rem; margin: 0 0 5px 0; color: #58a6ff; }
+        #telemetry { font-size: 0.85rem; color: #8b949e; font-family: monospace; }
+        button, select {
+            background-color: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        button:hover, select:hover { background-color: #30363d; border-color: #8b949e; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.active-light { background-color: #238636; color: #fff; border-color: #2ea44f; }
+        button.cam-off { background-color: #8b2c2c; color: #fff; border-color: #b24040; }
+
+        #viewport-frame {
+            position: relative;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+            width: 480px;
+            max-width: 95vw;
+            aspect-ratio: 4 / 3;
+            margin-bottom: 16px;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+        #error-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(22, 27, 34, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            color: #ff7b72;
+        }
+        #collapse-toggle {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            z-index: 1000;
+            background-color: #1f6feb;
+            color: #ffffff;
+            border-color: #58a6ff;
+            padding: 8px 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+        }
+        #collapse-toggle:hover { background-color: #388bfd; border-color: #a5d6ff; }
+        body.controls-hidden { padding: 0; overflow: hidden; }
+        body.controls-hidden #viewport-frame {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            aspect-ratio: auto;
+            margin: 0;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            background: #000;
+        }
+        body.controls-hidden #out-canvas, body.controls-hidden #gl-canvas { object-fit: fill; }
+        body.controls-hidden #viewport-frame { height: 100vh; height: 100dvh; min-height: 0; }
+        body.controls-hidden .panel { display: none; }
+        .hidden { display: none !important; }
+        /* Keep the camera <video> rendered (but invisible) - mobile browsers stop decoding display:none video */
+        #raw-stream { position: absolute; left: 0; top: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
+        label { font-size: 0.9rem; color: #c9d1d9; }
+
+        #region-rows { display: grid; gap: 8px; margin-top: 10px; }
+        .region-row {
+            display: grid;
+            grid-template-columns: 22px auto auto 140px 40px;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+        .swatch { width: 22px; height: 22px; border-radius: 5px; border: 1px solid #484f58; }
+        .speed-val { font-family: monospace; font-size: 0.8rem; color: #8b949e; text-align: right; }
+        @media (max-width: 560px) {
+            .region-row { grid-template-columns: 22px 1fr 1fr; }
+            .region-row input[type=range] { grid-column: 2 / 4; width: 100%; }
+            .speed-val { display: none; }
+        }
+        :root { color-scheme: dark; --accent: #b8f27c; }
+        * { box-sizing: border-box; }
+        body { padding: 20px; background: radial-gradient(ellipse at 15% 0%, #202c29 0, transparent 50%), #101312; color: #edf2e9; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; max-width: none; width: 100%; margin: 0; align-items: start; }
+        .studio-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 0 18px; border-bottom: 1px solid #343c35; }
+        .eyebrow { color: var(--accent); font: 11px monospace; letter-spacing: .18em; text-transform: uppercase; }
+        h1 { color: #edf2e9; font-size: clamp(22px, 3vw, 30px); font-weight: 500; letter-spacing: -.04em; margin: 4px 0; }
+        .subtitle, .hint { color: #9ca79d; font-size: 13px; line-height: 1.6; margin: 0; }
+        .panel { margin: 0; max-width: none; width: 100%; background: #1a201c; border-color: #343c35; border-radius: 16px; padding: 22px; box-shadow: none; text-align: left; }
+        #control-deck { grid-column: 2; grid-row: 2 / 4; }
+        .section-title { font-size: 14px; font-weight: 600; margin: 0 0 14px; }
+        .deck-row { gap: 16px; justify-content: flex-start; }
+        .deck-row > div { width: 100%; }
+        #contour-intensity-controls { margin-top: 14px; }
+        .studio-header > div { flex: 1 1 auto; min-width: 0; }
+        .studio-header #contour-intensity-controls { margin: 10px 0 0; max-width: 420px; text-align: left; }
+        label { color: #b8c1b8; font-size: 12px; display: block; margin-bottom: 8px; }
+        label span { color: var(--accent); }
+        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+        button, select { background: #252d27; border: 1px solid #414c42; border-radius: 8px; color: #e4ece1; padding: 10px 12px; font-size: 12px; }
+        select { max-width: 100%; }
+        button:hover, select:hover { background: #354237; border-color: #b8f27c; }
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+        .deck-row button { flex: 1 1 42%; }
+        #cam-toggle { background: var(--accent); color: #15200f; border-color: var(--accent); }
+        #telemetry { font-size: 11px; color: #b8f27c; margin-bottom: 18px; }
+        #viewport-frame { grid-column: 1; grid-row: 2; width: 100%; max-width: none; aspect-ratio: auto; height: calc(100vh - 170px); height: calc(100dvh - 170px); min-height: 320px; margin: 0; border: 1px solid #414c42; border-radius: 16px; background: #101312; box-shadow: 0 24px 70px #0005; }
+        #error-overlay { background: #101312e8; color: #d2dfcb; }
+        /* Correct the upside-down GPU camera contour display without changing other render modes. */
+        #gl-canvas.camera-upright { transform: scaleY(-1); }
+        #region-panel { grid-column: 1; }
+        .region-row { grid-template-columns: 22px minmax(0, 1.2fr) minmax(0, 1fr) minmax(50px, 1fr) 30px; border-top: 1px solid #303a32; padding-top: 10px; }
+        #collapse-toggle { position: static; background: transparent; border-color: #465644; box-shadow: none; white-space: nowrap; }
+        .presets { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 20px; }
+        .presets button { flex: 1; }
+        .presets button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); background: #2e3b27; }
+        .toolbar { display: flex; gap: 8px; margin-top: 18px; }
+        .toolbar button { flex: 1; }
+        #entrance-stars { position: fixed; inset: 0; pointer-events: none; z-index: 10; overflow: hidden; }
+        .entrance-star { position: absolute; color: #d5ffac; opacity: 0; animation: arrival 2.6s ease-in-out both; font-size: 24px; }
+        @keyframes arrival { 0%,100% { opacity: 0; transform: scale(.2) rotate(-25deg); } 45% { opacity: .9; transform: scale(1) rotate(15deg); } }
+        body.controls-hidden .studio-header { border: 0; padding: 0; }
+        body.controls-hidden .studio-header > div { display: none; }
+        body.controls-hidden #collapse-toggle { position: fixed; top: 16px; right: 16px; background: #1a201c; }
+        @media (max-width: 900px) { body { padding: 20px; grid-template-columns: minmax(0,1fr); } #control-deck, #viewport-frame, #region-panel { grid-column: 1; grid-row: auto; } #viewport-frame { grid-row: 2; height: 62vh; height: 62dvh; min-height: 280px; } .deck-row > div { width: calc(50% - 8px); } }
+        @media (max-width: 560px) { body { padding: 12px; gap: 12px; } .studio-header { align-items: flex-start; gap: 12px; } .panel { padding: 16px; } .region-row { grid-template-columns: 22px minmax(0,1fr) minmax(0,1fr); } .deck-row > div { width: 100%; } .subtitle { max-width: 230px; } }
+        @media (max-width: 700px) {
+            body {display:flex;flex-direction:column; padding:8px; gap:10px;}
+            .studio-header {width:100%; padding:6px 4px 10px;}
+            #viewport-frame {order:1; width:100%; height:auto; aspect-ratio:3/4; min-height:0; max-height:72dvh; border-radius:10px;}
+            #control-deck {order:2; width:100%; padding:14px;}
+            #region-panel {order:3; width:100%;}
+            .deck-row > div {width:100%;}
+            .toolbar button, .deck-row button, select {min-height:42px;}
+            input[type=range] {min-height:32px;}
+            #collapse-toggle {padding:9px; font-size:12px;}
+            body.controls-hidden #viewport-frame {position:fixed;inset:0;width:100vw;height:100dvh;max-height:none;aspect-ratio:auto;}
+        }
+        /* ---------- iPhone / iOS Safari ---------- */
+        html { -webkit-text-size-adjust: 100%; }
+        body { -webkit-tap-highlight-color: transparent; }
+        button, select, input { touch-action: manipulation; }
+        @media (max-width: 700px) {
+            body {
+                padding-left: max(8px, env(safe-area-inset-left));
+                padding-right: max(8px, env(safe-area-inset-right));
+                padding-bottom: max(8px, env(safe-area-inset-bottom));
+            }
+            /* iOS Safari zooms the page when a <select> or file picker under 16px gets focus. */
+            select, input[type=file] { font-size: 16px; }
+            input[type=range] { min-height: 44px; }
+            .toolbar button, .deck-row button, select { min-height: 44px; }
+            body.controls-hidden #collapse-toggle { top: calc(16px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); }
+            body.controls-hidden #viewport-frame { height: 100vh; height: -webkit-fill-available; height: 100dvh; }
+        }
+        @media (prefers-reduced-motion: reduce) { .entrance-star { animation: none; } button, select { transition: none; } }
+        .band-info { grid-column: 2 / -1; min-width: 0; }
+        .band-heading { display: flex; justify-content: space-between; gap: 10px; font: 12px monospace; color: #d3e6cb; }
+        .band-reading { display: block; color: #9ca79d; font: 11px monospace; margin: 6px 0; }
+        .band-meter { height: 4px; background: #303a32; border-radius: 4px; overflow: hidden; }
+        .band-fill { height: 100%; background: var(--accent); width: 0%; }
+        .audio-panel { border-top: 1px solid #414c42; margin-top: 22px; padding-top: 18px; }
+        .audio-panel select { width: 100%; }
+        .audio-panel input[type=file] { width: 100%; font-size: 12px; color: #b8c1b8; }
+        .audio-panel p { margin-top: 9px; overflow-wrap: anywhere; }
+        a { color: var(--accent); }
+        #audio-status, #separation-status { color: #c9dfbb; }
+    </style>
+</head>
+<body>
+    <div id="entrance-stars" aria-hidden="true"></div>
+    <header class="studio-header"><div><div class="eyebrow" id="header-eyebrow">Live generative playground</div><h1>Contour Draw</h1><p class="subtitle" id="header-subtitle">Turn the everyday into a moving canvas.</p></div><button id="collapse-toggle" title="Show or hide all controls (H)">Hide controls ↗</button></header>
+
+    <div class="panel" id="control-deck">
+        <h2 class="section-title" id="deck-title">Make it your own</h2><p class="hint" id="deck-intro">Choose a look, then tune each region.</p>
+        <div class="presets" aria-label="Pattern presets"><button data-preset="starlight" aria-pressed="false">✦ Starlight</button><button data-preset="print" aria-pressed="false">Print</button><button data-preset="cosmic" aria-pressed="false">Cosmic</button></div>
+        <div id="telemetry">Status: Booting... | FPS: --</div>
+        <div class="deck-row" id="main-controls-row">
+            <div class="pattern-slider">
+                <label for="k-slider">Regions (K): <span id="k-val">4</span></label>
+                <input type="range" id="k-slider" min="2" max="64" value="4" step="1">
+            </div>
+            <div class="pattern-slider">
+                <label for="speed-slider">Global speed: <span id="speed-val">1.0</span>x</label>
+                <input type="range" id="speed-slider" min="0" max="3" value="1" step="0.1">
+            </div>
+            <div class="pattern-slider">
+                <label for="vib-freq">Edge vibration: <span id="vib-freq-val">3.0</span> Hz</label>
+                <input type="range" id="vib-freq" min="0" max="20" value="3" step="0.5">
+            </div>
+            <div class="pattern-slider">
+                <label for="vib-amp">Vibration depth: <span id="vib-amp-val">3</span> px</label>
+                <input type="range" id="vib-amp" min="0" max="12" value="3" step="1">
+            </div>
+            <div class="pattern-slider">
+                <label for="snd-gain">Sound gain: <span id="snd-gain-val">8</span>x</label>
+                <input type="range" id="snd-gain" min="1" max="30" value="8" step="1">
+            </div>
+            <div>
+                <label for="mode">Render:</label>
+                <select id="mode" autocomplete="off">
+                    <option value="contourflow" selected>Contour Flow</option>
+                    <option value="vectorfield">Vector Field</option>
+                    <option value="paper">Ink on paper</option>
+                    <option value="color">Region color</option>
+                    <option value="spectrum">Audio spectrum · waveforms</option>
+                    <option value="edges">Audio spectrum · image edges</option>
+                    <option value="flat">Flat region colors</option>
+                    <option value="cartoon">Cartoon · Scanner Darkly</option>
+                    <option value="pointillism">Pointillism</option>
+                </select>
+            </div>
+        </div>
+        <div id="contour-intensity-controls">
+            <label for="contour-intensity">Contour sensitivity: <span id="contour-intensity-val">83</span>%</label>
+            <input id="contour-intensity" type="range" min="0" max="100" step="1" value="83" aria-label="Contour sensitivity">
+            <p class="hint">Lower = fewer contours, especially in shadows and low-detail areas. Higher = more fine detail.</p>
+        </div>
+        <div class="deck-row">
+            <button id="cam-toggle">Turn Camera Off</button>
+            <button id="flip-camera">Use front camera</button>
+            <button id="light-toggle">Toggle Camera Light</button>
+            <button id="nv-toggle" aria-pressed="false">Night Vision: Off</button>
+            <button id="randomize">Randomize patterns</button>
+            <button id="mic-toggle">Sound: Off</button>
+        </div>
+        <div class="deck-row" id="scale-row"><div><label for="scale-slider">Pattern size: <span id="scale-val">1.0</span>×</label><input id="scale-slider" type="range" min="0.05" max="2.5" step="0.1" value="1"></div></div>
+        <section id="nv-controls" class="hidden" aria-label="Night vision settings">
+            <p class="hint">Brightens and denoises the camera image before analysis, so dark scenes still produce regions and contours. Software only amplifies what the sensor captures.</p>
+            <div class="deck-row">
+                <div><label for="nv-boost">Boost: <span id="nv-boost-val">60</span>%</label><input id="nv-boost" type="range" min="0" max="100" value="60"></div>
+                <div><label for="nv-smooth">Noise smoothing: <span id="nv-smooth-val">50</span>%</label><input id="nv-smooth" type="range" min="0" max="90" value="50"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:9px;margin-top:10px;line-height:1.5">
+                <input id="nv-green" type="checkbox" style="accent-color:var(--accent)">
+                Classic green phosphor look
+            </label>
+        </section>
+        <section id="cartoon-controls" class="hidden" aria-label="Cartoon settings">
+            <p class="hint">Rotoscope-inspired flat colors, cel shading, and ink contours. Try 6–8 regions for faces. Works with live and held scenes.</p>
+            <div class="deck-row">
+                <div><label for="cartoon-ink">Ink strength: <span id="cartoon-ink-val">75</span>%</label><input id="cartoon-ink" type="range" min="0" max="100" value="75"></div>
+                <div><label for="cartoon-detail">Contour detail: <span id="cartoon-detail-val">65</span>%</label><input id="cartoon-detail" type="range" min="0" max="100" value="65"></div>
+            </div>
+        </section>
+        <section id="pointillism-controls" class="hidden" aria-label="Pointillism settings">
+          <p class="hint">WSJ-style stippling driven by K-means regions. Darker regions fill densely; the brightest ~20% of regions are rendered as a border of black dots rather than empty paper. The field drifts so points move and density shifts over time.</p>
+            <div class="deck-row">
+                <div>
+                    <label for="point-size">Dot size: <span id="point-size-val">0.55</span>×</label>
+                    <input id="point-size" type="range" min="0.08" max="2.2" value="0.55" step="0.02">
+                </div>
+                <div>
+                    <label for="point-density">Spacing: <span id="point-density-val">1.0</span>×</label>
+                    <input id="point-density" type="range" min="0.35" max="2.5" value="1" step="0.05">
+                </div>
+                <div>
+                    <label for="point-contrast">Contrast: <span id="point-contrast-val">1.0</span>×</label>
+                    <input id="point-contrast" type="range" min="0.4" max="2.5" value="1" step="0.05">
+                </div>
+                <div>
+                    <label for="point-motion">Drift speed: <span id="point-motion-val">1.2</span>×</label>
+                    <input id="point-motion" type="range" min="0" max="4" value="1.2" step="0.05">
+                </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:9px;margin-top:12px;line-height:1.5">
+                <input id="point-jitter" type="checkbox" checked style="accent-color:var(--accent)">
+                Soft jitter (less grid-like)
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;margin-top:10px;line-height:1.5">
+                <input id="point-color" type="checkbox" style="accent-color:var(--accent)">
+                Tint dots with scene color (otherwise pure ink)
+            </label>
+            <label style="display:flex;align-items:center;gap:9px;margin-top:10px;line-height:1.5">
+    <input id="point-static" type="checkbox" style="accent-color:var(--accent)">
+    Static WSJ stipple (no motion)
+</label>
+        </section>
+        <section class="audio-panel" aria-label="Audio source and playback">
+            <h2 class="section-title">Sound → motion</h2>
+            <label for="audio-input">Audio input</label>
+            <select id="audio-input"><option value="mic">Live microphone</option><option value="file">Uploaded song</option></select>
+            <label for="audio-analysis" style="margin-top:12px">Separate into</label>
+            <select id="audio-analysis">
+                <option value="bands">Frequency bands</option>
+                <option value="layers">Sound layers · approximate</option>
+                <option value="stems" id="stems-option" disabled>AI stems · separate a song first</option>
+            </select>
+            <p id="analysis-note" class="hint">One frequency range per region, from bass to treble.</p>
+            <div id="song-controls" class="hidden">
+                <label for="song-file" style="margin-top:12px">Choose a song</label>
+                <input id="song-file" type="file" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg">
+                <p id="song-name" class="hint">Files stay on your computer.</p>
+                <div class="toolbar"><button id="song-play" disabled>Play song</button><button id="separate-song" disabled>Separate AI stems</button></div>
+                <button id="cancel-separation" class="hidden" style="margin-top:8px">Cancel separation</button>
+                <label for="song-seek" style="margin-top:12px">Position <span id="song-time">0:00 / 0:00</span></label>
+                <input id="song-seek" type="range" min="0" max="1" step="0.01" value="0" disabled>
+                <label for="song-volume">Playback volume</label>
+                <input id="song-volume" type="range" min="0" max="1" step="0.01" value="0.75">
+                <p class="hint">The song plays while its waveforms animate. Pause and seek keep them together.</p>
+                <p class="hint">AI stems need the <a href="http://127.0.0.1:8765/" target="_blank" rel="noopener">local helper</a>. <a href="kmeans_audio/README.md" target="_blank" rel="noopener">Setup instructions</a></p>
+            </div>
+            <p id="audio-status" class="hint" role="status">Choose an input, then turn Sound on or play a song.</p>
+            <p id="separation-status" class="hint" role="status"></p>
+        </section>
+        <label style="display:flex;align-items:center;gap:9px;margin-top:16px;line-height:1.5">
+            <input id="audio-lines-only" type="checkbox" checked style="accent-color:var(--accent)">
+            Audio affects lines only (keep edges still)
+        </label>
+        <label style="display:flex;align-items:center;gap:9px;margin-top:12px;line-height:1.5">
+            <input id="constant-waveform-brightness" type="checkbox" checked style="accent-color:var(--accent)">
+            Keep waveform brightness constant
+        </label>
+        <div id="edge-controls" class="hidden" style="margin-top:16px">
+            <label for="edge-detail">Edge sensitivity: <span id="edge-detail-val">65</span>%</label>
+            <input id="edge-detail" type="range" min="1" max="100" value="65" step="1">
+            <p class="hint">The image’s contours replace the pattern lines. Audio bends those contours using each region’s waveform. Vibration depth sets the movement; rotation changes its direction. Increase sensitivity to reveal finer details.</p>
+        </div>
+        <div id="spectrum-controls" class="hidden" style="margin-top:18px">
+            <label for="rotation-slider">Line rotation: <span id="rotation-val">1.0</span>×</label>
+            <input id="rotation-slider" type="range" min="-3" max="3" step="0.1" value="1">
+            <p class="hint" id="spectrum-description">Each region gets one logarithmic frequency band, from bass to treble. Turn Sound on to draw the actual waveform in each band. Sound gain controls sensitivity; vibration depth controls wave height. Rotation is independent of global speed.</p>
+            <p class="hint">Only waveform traces are drawn—no straight guide lines. Each band is zoomed to show its shape; the readout shows its actual frequency. Negative rotation reverses direction.</p>
+        </div>
+        <div class="toolbar"><button id="pause-patterns" aria-pressed="false">Pause motion</button><button id="save-frame">Save PNG ↓</button></div>
+        <p id="source-note" class="hint" role="status" style="margin-top:14px">Connecting camera…</p>
+        <canvas id="scope" width="480" height="48" class="hidden"
+                style="width:100%;max-width:480px;height:48px;margin-top:10px;border:1px solid #30363d;border-radius:6px;background:#0d1117"></canvas>
+    </div>
+
+    <div id="viewport-frame">
+        <video id="raw-stream" autoplay playsinline webkit-playsinline muted></video>
+        <canvas id="out-canvas" width="480" height="360"></canvas>
+        <canvas id="gl-canvas" width="480" height="360" class="hidden"></canvas>
+        <div id="error-overlay"><p>Initializing connection to hardware video layers...</p></div>
+    </div>
+
+    <div class="panel" id="region-panel">
+        <strong style="font-size:0.95rem">Per-region settings</strong>
+        <p class="hint" id="region-hint">Pattern, movement, and speed for each color region.</p><div id="region-rows"></div>
+    </div>
+
+    <script>
+        const MAX_K = 64;                     // highest selectable number of regions
+const PH = 60, SCALE = 2;
+let PW = 80;                        // analysis columns: follows the screen's aspect ratio (see resizeToFrame)
+        let OUT_W = PW * SCALE;
+        const OUT_H = PH * SCALE;
+
+        // type: 0 lines, 1 crosshatch, 2 waves, 3 dots, 4 squares, 5 plus, 6 stars. max = coverage ceiling the shape can reach
+        const PATTERNS = [
+            { id: 'lines',      label: 'Lines',       t: 0, max: 0.92 },
+            { id: 'crosshatch', label: 'Cross-hatch', t: 1, max: 0.92 },
+            { id: 'waves',      label: 'Waves',       t: 2, max: 0.92 },
+            { id: 'dots',       label: 'Circles',     t: 3, max: 0.78 },
+            { id: 'squares',    label: 'Squares',     t: 4, max: 0.90 },
+            { id: 'plus',       label: 'Crosses',     t: 5, max: 0.80 },
+            { id: 'stars',      label: 'Stars',       t: 6, max: 0.42 },
+            { id: 'bears',      label: 'Dancing bears',     t: 7,  max: 0.36 },
+            { id: 'carpet',     label: 'Sierpinski carpet', t: 8,  max: 0.90 },
+            { id: 'julia',      label: 'Julia fractal',     t: 9,  max: 0.90 },
+            { id: 'spiral',     label: 'Spirals',           t: 10, max: 0.90 },
+            { id: 'truchet',    label: 'Truchet maze',      t: 11, max: 0.50 },
+            { id: 'sparkles', label: 'Twinkling stars', t: 12, max: 0.55 },
+            { id: 'rings', label: 'Ripple rings', t: 13, max: 0.65 }
+        ];
+        // still: nothing | spin: whole lattice rotates | drift: lattice slides | twirl: each shape spins in place
+        const MOTIONS = ['still', 'spin', 'drift', 'twirl'];
+        const STAR_Q = 0.55; // star inner-radius depth
+
+        const defPat = [12, 12, 13, 3, 8, 6, 3, 2, 1, 5];
+        const defMot = [1, 2, 3, 2, 1, 3, 1, 3, 2, 1];
+        const defSpd = [1, 1.2, -1, 1.5, -0.8, 1, 0.6, -1.4, 1, 1.8];
+        // Regions beyond the first ten reuse the defaults, shifted so neighbouring regions still look different.
+        const regionCfg = Array.from({ length: MAX_K }, (_, i) => {
+            const lap = Math.floor(i / 10), j = i % 10;
+            return { pattern: (defPat[j] + lap * 3) % PATTERNS.length, motion: defMot[j], speed: defSpd[j] * (1 + 0.12 * lap) };
+        });
+
+        const video = document.getElementById('raw-stream');
+        const outCanvas = document.getElementById('out-canvas');
+        const outCtx = outCanvas.getContext('2d');
+        const procCanvas = document.createElement('canvas');
+        procCanvas.width = PW; procCanvas.height = PH;
+        const procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+        let procImg = procCtx.createImageData(PW, PH);
+        let patternImg = outCtx.createImageData(OUT_W, OUT_H);
+
+        // ---------- GPU pattern renderer (WebGL2) ----------
+        // Draws the pattern modes (Region color, Ink on paper, Audio spectrum · waveforms) in a fragment shader.
+        // The CPU loop in renderPatterns() stays as an automatic fallback if WebGL2 is missing or the context is lost.
+        // GL_SCALE = render pixels per logical output pixel. 1 keeps the exact look of the CPU renderer;
+        // raise it (2, 3, 4) for crisper pattern edges at the cost of fill-rate (region borders stay on the analysis grid).
+        const GL_SCALE = 1;
+        const gpuPatterns = (() => {
+            const canvas = document.getElementById('gl-canvas');
+            const T = 7;                 // texels (RGBA32F) per region in the parameter texture
+            const TRACE_W = 4096;        // must equal TRACE_N (audio waveform length)
+            const paramBuf = new Float32Array(T * 4 * MAX_K);
+            let gl = null, prog = null, U = {}, tex = {};
+            let warpBuf = null, warpW = 0, assignW = 0, assignH = 0, traceStamp = NaN, traceRows = 0;
+            let visible = false, enabled = true;
+
+            const VERT = `#version 300 es
+void main() {
+    vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+            const FRAG = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+precision highp usampler2D;
+
+uniform usampler2D uAssign;   // PW x PH region index per analysis cell
+uniform sampler2D  uParams;   // T x MAX_K per-region pattern parameters
+uniform sampler2D  uWarp;     // row 0: warpX[y], row 1: warpY[x]
+uniform sampler2D  uTrace;    // 4096 x MAX_K audio waveform per region
+uniform vec2  uPix;           // canvas size in render pixels
+uniform vec2  uOut;           // logical output size (OUT_W, OUT_H)
+uniform float uRes;           // render pixels per logical pixel
+uniform ivec2 uGrid;          // PW, PH
+uniform float uCell;          // logical pixels per analysis cell (SCALE)
+uniform vec3  uBg;            // 0..255
+out vec4 outColor;
+
+const float PI = 3.14159265358979323846;
+const float STAR_Q = 0.55;
+const int   TRACE_N = ${TRACE_W};
+
+float clamp01(float v) { return clamp(v, 0.0, 1.0); }
+float safeAtan(float y, float x) { return (x == 0.0 && y == 0.0) ? 0.0 : atan(y, x); }
+
+float stripe(float t0, float per, float inside) {
+    float t = t0 - per * floor(t0 / per);
+    float d = t < inside ? min(t, inside - t) : -min(t - inside, per - t);
+    return d <= -0.5 ? 0.0 : d >= 0.5 ? 1.0 : d + 0.5;
+}
+
+float segDist(vec2 p, vec2 a, vec2 b) {
+    vec2 v = b - a;
+    float t = clamp(dot(p - a, v) / dot(v, v), 0.0, 1.0);
+    return length(p - a - t * v);
+}
+
+float bearDist(float x, float y, float ph) {
+    y += 0.085 - 0.04 * sin(2.0 * ph);
+    float sa = sin(ph), sb = -sa;
+    float d = (length(vec2(x / 0.28, (y - 0.08) / 0.34)) - 1.0) * 0.28;
+    d = min(d, length(vec2(x, y + 0.34)) - 0.17);
+    d = min(d, length(vec2(abs(x) - 0.14, y + 0.48)) - 0.07);
+    for (int i = 0; i < 2; i++) {
+        float s = i == 0 ? -1.0 : 1.0;
+        float a = 1.1 + 0.7 * (s < 0.0 ? sa : sb);
+        d = min(d, segDist(vec2(x, y), vec2(0.22 * s, -0.12),
+                           vec2(0.22 * s + 0.3 * s * sin(a), -0.12 + 0.3 * cos(a))) - 0.065);
+        float b = 0.35 * (s < 0.0 ? sb : sa);
+        d = min(d, segDist(vec2(x, y), vec2(0.12 * s, 0.38),
+                           vec2(0.12 * s + 0.26 * sin(b) + 0.06 * s, 0.38 + 0.26 * cos(b))) - 0.085);
+    }
+    return d;
+}
+
+float traceAt(int row, float position, float start, float step) {
+    float loc = start + position * step;
+    float fl = floor(loc), fr = loc - fl;
+    int idx = ((int(fl) % TRACE_N) + TRACE_N) % TRACE_N;
+    float a = texelFetch(uTrace, ivec2(idx, row), 0).r;
+    float b = texelFetch(uTrace, ivec2((idx + 1) % TRACE_N, row), 0).r;
+    return a * (1.0 - fr) + b * fr;
+}
+
+void main() {
+    // Logical output-pixel coordinates (integers when uRes == 1, matching the CPU loop exactly).
+    float x = (gl_FragCoord.x - 0.5) / uRes;
+    float y = (uPix.y - 0.5 - gl_FragCoord.y) / uRes;
+
+    // regionAt(): warp the lookup position, then pick the analysis cell.
+    int xi = clamp(int(floor(x + 0.5)), 0, int(uOut.x) - 1);
+    int yi = clamp(int(floor(y + 0.5)), 0, int(uOut.y) - 1);
+    float wx = texelFetch(uWarp, ivec2(yi, 0), 0).r;
+    float wy = texelFetch(uWarp, ivec2(xi, 1), 0).r;
+    int sx = clamp(int(floor((x + wx) / uCell)), 0, uGrid.x - 1);
+    int sy = clamp(int(floor((y + wy) / uCell)), 0, uGrid.y - 1);
+    int c = int(texelFetch(uAssign, ivec2(sx, sy), 0).r);
+
+    vec4 t0 = texelFetch(uParams, ivec2(0, c), 0);   // type, per, ox, oy
+    vec4 t1 = texelFetch(uParams, ivec2(1, c), 0);   // phase, cov, cos, sin
+    vec4 t2 = texelFetch(uParams, ivec2(2, c), 0);   // tc, ts, inside, amp
+    vec4 t3 = texelFetch(uParams, ivec2(3, c), 0);   // freq, s1, s2, aux (depth | k)
+    vec4 t4 = texelFetch(uParams, ivec2(4, c), 0);   // ink rgb, flag (inv | interior)
+    vec4 t5 = texelFetch(uParams, ivec2(5, c), 0);   // cr, ci, audio?, displacement scale
+    vec4 t6 = texelFetch(uParams, ivec2(6, c), 0);   // traceStart, traceStep, visibility
+
+    int   type = int(t0.x + 0.5);
+    float per = t0.y, phase = t1.x, cov = t1.y;
+    float cs = t1.z, sn = t1.w, tc = t2.x, ts = t2.y, inside = t2.z, amp = t2.w;
+    float freq = t3.x, s1 = t3.y, s2 = t3.z, aux = t3.w;
+
+    float px = x - t0.z, py = y - t0.w;
+    float u = px * cs + py * sn, v = -px * sn + py * cs;
+    float alpha;
+
+    if (t5.z > 0.5) {
+        float displacement = traceAt(c, v, t6.x, t6.y) * t5.w;
+        alpha = stripe(u - displacement, per, inside) * t6.z;
+    } else if (type == 0) alpha = stripe(u, per, inside);
+    else if (type == 1) alpha = max(stripe(u, per, inside), stripe(v, per, inside));
+    else if (type == 2) alpha = stripe(u + amp * sin(v * freq), per, inside);
+    else {
+        float fu = (u - per * floor(u / per)) - per * 0.5;
+        float fv = (v - per * floor(v / per)) - per * 0.5;
+        float gu = fu * tc + fv * ts, gv = -fu * ts + fv * tc;
+        if (type == 3) alpha = clamp01(s1 - length(vec2(gu, gv)) + 0.5);
+        else if (type == 4) alpha = clamp01(s1 - max(abs(gu), abs(gv)) + 0.5);
+        else if (type == 5) {
+            float au = abs(gu), av = abs(gv);
+            float d = min(max(au - s1, av - s2), max(av - s1, au - s2));
+            alpha = clamp01(0.5 - d);
+        } else if (type == 6) {
+            float f = (safeAtan(gv, gu) + PI) / (PI * 0.4);
+            f -= floor(f);
+            float rr = s1 * (1.0 - STAR_Q * abs(2.0 * f - 1.0));
+            alpha = clamp01(rr - length(vec2(gu, gv)) + 0.5);
+        } else if (type == 7) {
+            if (abs(gu) > 0.62 * s1 || abs(gv) > 0.76 * s1) alpha = 0.0;
+            else {
+                int par = (int(floor(u / per)) + int(floor(v / per))) & 1;
+                alpha = clamp01(0.5 - bearDist(gu / s1, gv / s1, phase + float(par) * PI) * s1);
+            }
+        } else if (type == 8) {
+            int depth = int(aux + 0.5);
+            float n = 1.0;
+            for (int l = 0; l < 4; l++) if (l < depth) n *= 3.0;
+            int ni = int(n + 0.5);
+            int a = clamp(int(floor((gu + per * 0.5) / per * n)), 0, ni - 1);
+            int b = clamp(int(floor((gv + per * 0.5) / per * n)), 0, ni - 1);
+            bool hole = false;
+            for (int l = 0; l < 4; l++) {
+                if (l >= depth) break;
+                if (a % 3 == 1 && b % 3 == 1) { hole = true; break; }
+                a /= 3; b /= 3;
+            }
+            alpha = (hole == (t4.w > 0.5)) ? 1.0 : 0.0;
+        } else if (type == 9) {
+            float zr = gu / (per * 0.5) * 1.5, zi = gv / (per * 0.5) * 1.5;
+            int it = 0;
+            for (int i = 0; i < 24; i++) {
+                if (zr * zr + zi * zi >= 16.0) break;
+                float t = zr * zr - zi * zi + t5.x;
+                zi = 2.0 * zr * zi + t5.y; zr = t; it++;
+            }
+            if (it >= 24) alpha = t4.w > 0.5 ? 1.0 : 0.0;
+            else {
+                float sm = float(it) + 1.0 - log(0.5 * log(zr * zr + zi * zi)) / 0.6931471805599453;
+                float band = sm * 0.35;
+                alpha = (band - floor(band)) < cov ? 1.0 : 0.0;
+            }
+        } else if (type == 10) {
+            float sv = length(vec2(gu, gv)) / (per * 0.5) * 3.0 + 3.0 * safeAtan(gv, gu) / (2.0 * PI);
+            alpha = stripe(sv * aux, aux, cov * aux);
+        } else if (type == 12) {
+            int ix = int(floor(u / per)), iy = int(floor(v / per));
+            uint hash = (uint(ix) * 73856093u) ^ (uint(iy) * 19349663u);
+            float pulse = 0.5 + 0.5 * sin(phase + float(hash % 1024u) * 0.031);
+            float radius = per * (0.15 + 0.26 * pulse);
+            float diamond = sqrt(abs(gu)) + sqrt(abs(gv));
+            float core = clamp01((sqrt(radius) - diamond) * 1.8 + 0.5);
+            float halo = exp(-(gu * gu + gv * gv) / (radius * radius * 0.45)) * 0.18;
+            alpha = min(1.0, (core + halo) * (0.35 + 0.65 * pulse));
+        } else if (type == 13) {
+            float radius = length(vec2(gu, gv));
+            float spacing = per / 5.0;
+            alpha = stripe(radius - phase * spacing * 0.25, spacing, spacing * cov * 0.65);
+            alpha *= clamp01(per * 0.48 - radius);
+        } else {
+            int ix = int(floor(u / per)), iy = int(floor(v / per));
+            uint h = (uint(ix) * 73856093u) ^ (uint(iy) * 19349663u);
+            h ^= h >> 13u; h *= 1274126177u; h ^= h >> 16u;
+            int flip = int(h & 1u) ^ (sin(phase + float((h >> 3u) & 255u) * 0.5) > 0.35 ? 1 : 0);
+            float hh = per * 0.5, sg = flip == 1 ? 1.0 : -1.0;
+            float d = min(abs(length(vec2(gu - sg * hh, gv + hh)) - hh),
+                          abs(length(vec2(gu + sg * hh, gv - hh)) - hh));
+            alpha = clamp01(s1 / 2.0 - d + 0.5);
+        }
+    }
+
+    vec3 ink = t4.rgb;
+    outColor = vec4((uBg + (ink - uBg) * alpha) / 255.0, 1.0);
+}`;
+
+            function compile(type, src) {
+                const s = gl.createShader(type);
+                gl.shaderSource(s, src); gl.compileShader(s);
+                if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader compile failed');
+                return s;
+            }
+            function makeTexture(internal, w, h, format, type) {
+                const t = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, t);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, null);
+                return t;
+            }
+            function bind(unit, texture) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texture); }
+
+            function init() {
+                try {
+                    gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true });
+                    if (!gl) throw new Error('WebGL2 is not available');
+                    prog = gl.createProgram();
+                    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+                    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+                    gl.linkProgram(prog);
+                    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) || 'link failed');
+                    U = {};
+                    for (const name of ['uAssign', 'uParams', 'uWarp', 'uTrace', 'uPix', 'uOut', 'uRes', 'uGrid', 'uCell', 'uBg'])
+                        U[name] = gl.getUniformLocation(prog, name);
+                    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+                    tex = {
+                        params: makeTexture(gl.RGBA32F, T, MAX_K, gl.RGBA, gl.FLOAT),
+                        trace: makeTexture(gl.R32F, TRACE_W, MAX_K, gl.RED, gl.FLOAT),
+                        warp: null,
+                        assign: gl.createTexture()
+                    };
+                    assignW = assignH = 0; traceStamp = NaN; traceRows = 0; warpW = 0;
+                    resize();
+                    enabled = true;
+                    return true;
+                } catch (err) {
+                    console.warn('GPU renderer disabled, using the CPU renderer:', err && err.message || err);
+                    gl = null; enabled = false;
+                    return false;
+                }
+            }
+
+            // Call whenever OUT_W / OUT_H change.
+            function resize() {
+                canvas.width = OUT_W * GL_SCALE; canvas.height = OUT_H * GL_SCALE;
+                if (!gl) return;
+                if (tex.warp) gl.deleteTexture(tex.warp);
+                warpW = Math.max(OUT_W, OUT_H);
+                warpBuf = new Float32Array(warpW * 2);
+                tex.warp = makeTexture(gl.R32F, warpW, 2, gl.RED, gl.FLOAT);
+                assignW = assignH = 0;
+            }
+
+            function show(on) {
+                if (on === visible) return;
+                visible = on;
+                canvas.classList.toggle('hidden', !on);
+                outCanvas.classList.toggle('hidden', on);
+            }
+
+            // P: per-region parameter objects built by renderPatterns(). Returns false when the CPU path should draw instead.
+            function draw(assignments, P, bg, fixedBrightness) {
+                if (!gl || !enabled || gl.isContextLost()) { show(false); return false; }
+                if (warpX.length > warpW || warpY.length > warpW || canvas.width !== OUT_W * GL_SCALE) resize();
+
+                const n = P.length, b = paramBuf;
+                let anyAudio = false;
+                for (let i = 0; i < n; i++) {
+                    const q = P[i], o = i * T * 4, band = q.audioBand;
+                    if (band) anyAudio = true;
+                    const wrap = q.type === 13 ? 4 : 2 * Math.PI;   // keep trig / drift arguments small for float32 GPUs
+                    b[o] = q.type; b[o + 1] = q.per; b[o + 2] = q.ox; b[o + 3] = q.oy;
+                    b[o + 4] = q.phase % wrap; b[o + 5] = q.cov; b[o + 6] = q.cos; b[o + 7] = q.sin;
+                    b[o + 8] = q.tc; b[o + 9] = q.ts; b[o + 10] = q.inside; b[o + 11] = q.amp;
+                    b[o + 12] = q.freq; b[o + 13] = q.s1; b[o + 14] = q.s2;
+                    b[o + 15] = q.type === 8 ? q.depth : q.type === 10 ? q.k : 0;
+                    b[o + 16] = q.ink[0]; b[o + 17] = q.ink[1]; b[o + 18] = q.ink[2];
+                    b[o + 19] = q.type === 8 ? (q.inv ? 1 : 0) : q.type === 9 ? (q.interior ? 1 : 0) : 0;
+                    b[o + 20] = q.cr || 0; b[o + 21] = q.ci || 0;
+                    b[o + 22] = band ? 1 : 0;
+                    b[o + 23] = band ? band.level * vibAmp / Math.max(.00001, band.tracePeak) : 0;
+                    b[o + 24] = band ? band.traceStart : 0;
+                    b[o + 25] = band ? band.traceStep : 0;
+                    b[o + 26] = band ? (fixedBrightness ? 1 : Math.min(1, band.level * 8) * Math.min(1, band.tracePeak * 10000)) : 1;
+                    b[o + 27] = 0;
+                }
+
+                gl.useProgram(prog);
+                gl.viewport(0, 0, canvas.width, canvas.height);
+
+                bind(1, tex.params);
+                gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, T, n, gl.RGBA, gl.FLOAT, b);
+
+                bind(0, tex.assign);
+                if (assignW !== PW || assignH !== PH) {
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8UI, PW, PH, 0, gl.RED_INTEGER, gl.UNSIGNED_BYTE, assignments);
+                    assignW = PW; assignH = PH;
+                } else {
+                    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PW, PH, gl.RED_INTEGER, gl.UNSIGNED_BYTE, assignments);
+                }
+
+                bind(2, tex.warp);
+                warpBuf.set(warpX, 0); warpBuf.set(warpY, warpW);
+                gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, warpW, 2, gl.RED, gl.FLOAT, warpBuf);
+
+                bind(3, tex.trace);
+                if (anyAudio && (traceStamp !== lastTraceTime || traceRows < n)) {   // waveforms only change ~30x/second
+                    for (let i = 0; i < n; i++)
+                        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, i, TRACE_W, 1, gl.RED, gl.FLOAT, bands[i].trace);
+                    traceStamp = lastTraceTime; traceRows = n;
+                }
+
+                gl.uniform1i(U.uAssign, 0); gl.uniform1i(U.uParams, 1); gl.uniform1i(U.uWarp, 2); gl.uniform1i(U.uTrace, 3);
+                gl.uniform2f(U.uPix, canvas.width, canvas.height);
+                gl.uniform2f(U.uOut, OUT_W, OUT_H);
+                gl.uniform1f(U.uRes, GL_SCALE);
+                gl.uniform2i(U.uGrid, PW, PH);
+                gl.uniform1f(U.uCell, SCALE);
+                gl.uniform3f(U.uBg, bg[0], bg[1], bg[2]);
+                canvas.classList.remove('camera-upright');
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+                show(true);
+                return true;
+            }
+
+            canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); enabled = false; show(false); });
+            canvas.addEventListener('webglcontextrestored', () => { init(); });
+            init();
+
+            return {
+                canvas, init, resize, draw, show,
+                get active() { return visible; },
+                get enabled() { return enabled; },
+                set enabled(v) { enabled = !!v && !!gl; if (!enabled) show(false); }
+            };
+        })();
+
+
+        // GPU structure-tensor and streamline renderer; independent of the pattern shader.
+        const gpuFields = (() => {
+            const canvas = document.getElementById('gl-canvas');
+            let gl, programs = {}, textures = {}, fb, vao, width=0, height=0, ready=false;
+            const fieldCanvas = document.createElement('canvas');
+            const fieldCtx = fieldCanvas.getContext('2d', {willReadFrequently:true});
+            const V = `#version 300 es
+            void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.-1.,0.,1.);}`;
+            const header = `#version 300 es
+            precision highp float; precision highp int;
+            uniform sampler2D uTex; uniform ivec2 uSize;
+            out vec4 frag;
+            vec4 at(ivec2 p){return texelFetch(uTex,clamp(p,ivec2(0),uSize-1),0);}`;
+            const gradients = header + `
+            float lum(ivec2 p){return dot(at(p).rgb,vec3(.2126,.7152,.0722));}
+            void main(){ivec2 p=ivec2(gl_FragCoord.xy);float gx=(lum(p+ivec2(1,0))-lum(p-ivec2(1,0)))*.5;
+            float gy=(lum(p+ivec2(0,1))-lum(p-ivec2(0,1)))*.5;
+            frag=vec4(gx*gx,gx*gy,gy*gy,1.);}`;
+            const smooth = header + `
+            void main(){ivec2 p=ivec2(gl_FragCoord.xy);
+            frag=(at(p-ivec2(1,0))+at(p+ivec2(1,0))+at(p-ivec2(0,1))+at(p+ivec2(0,1))+4.*at(p))/8.;}`;
+            const directions = header + `
+            uniform float uSensitivity;
+            void main(){ivec2 p=ivec2(gl_FragCoord.xy);vec3 t=at(p).rgb;
+            float energy=t.x+t.z;float coherence=length(vec2(t.x-t.z,2.*t.y));
+            float theta=.5*atan(2.*t.y,t.x-t.z)+1.57079632679;
+            // Suppress weak gradients/noisy dark regions before streamline tracing.
+            float strength=sqrt(max(energy,0.));
+            float threshold=mix(.075,.003,uSensitivity);
+            float confidence=smoothstep(threshold,threshold*2.5,strength);
+            float directional=energy>1e-8?min(1.,coherence/energy):0.;
+            frag=vec4(cos(theta),sin(theta),confidence*directional,1.);}`;
+            const arrows = header + `
+            uniform vec2 uOut;uniform float uScale;
+            float segment(vec2 p,vec2 a,vec2 b){vec2 v=b-a;return length(p-a-v*clamp(dot(p-a,v)/max(dot(v,v),1e-6),0.,1.));}
+            void main(){vec2 p=vec2(gl_FragCoord.x,uOut.y-gl_FragCoord.y);vec2 cell=p/uScale;
+            vec2 center=(floor((cell-2.)/4.)*4.+2.5)*uScale;
+            ivec2 idx=ivec2(floor(center/uScale));vec4 f=at(idx);
+            float d=1e5;
+            if(f.z>=.12 && all(greaterThanEqual(idx,ivec2(2))) && all(lessThan(idx,uSize-2))){
+            vec2 v=normalize(f.xy),perp=vec2(-v.y,v.x);float len=min(4.*uScale*.75,11.);
+            vec2 a=center-v*len*.5,b=center+v*len*.5;float h=min(2.5,len*.28);
+            d=min(segment(p,a,b),min(segment(p,b,b-v*h+perp*h*.5),segment(p,b,b-v*h-perp*h*.5)));}
+            float ink=1.-smoothstep(.25,1.25,d);frag=vec4(mix(vec3(250.,248.,242.)/255.,vec3(32.)/255.,ink),1.);}`;
+            // Each GPU vertex integrates its own streamline position. This avoids CPU tracing and readback.
+            const lineV = `#version 300 es
+            precision highp float;precision highp int;
+            uniform sampler2D uField;uniform ivec2 uSize;uniform vec2 uOut;uniform float uScale;
+            uniform int uSeedsX;uniform float uSeedStep;
+            vec3 field(vec2 p){
+                vec2 xy=p/uScale-vec2(.5);
+                ivec2 q=ivec2(floor(xy));
+                vec2 f=fract(xy);
+                if(any(lessThan(q,ivec2(1)))||any(greaterThanEqual(q,uSize-ivec2(2))))return vec3(0.);
+                vec3 a=texelFetch(uField,q,0).xyz;
+                vec3 b=texelFetch(uField,q+ivec2(1,0),0).xyz;
+                vec3 c=texelFetch(uField,q+ivec2(0,1),0).xyz;
+                vec3 d=texelFetch(uField,q+ivec2(1,1),0).xyz;
+                if(dot(a.xy,b.xy)<0.)b.xy=-b.xy;
+                if(dot(a.xy,c.xy)<0.)c.xy=-c.xy;
+                if(dot(a.xy,d.xy)<0.)d.xy=-d.xy;
+                vec3 r=mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+                r.xy=normalize(r.xy+vec2(1e-7));
+                return r;
+            }
+             void main(){
+             // Independent line segments: never join across a rejected streamline sample.
+             int seed=gl_InstanceID;
+             int segment=gl_VertexID/2;
+             int endpoint=gl_VertexID%2;
+             float signDir=segment<16?-1.:1.;
+             int iterations=(segment%16)+endpoint;
+             vec2 pos=(vec2(float(seed%uSeedsX),float(seed/uSeedsX))+.5)*uSeedStep;
+             vec3 f=field(pos);vec2 v=f.xy*signDir;
+             bool valid=f.z>=.12 && length(v)>.1;
+             for(int j=0;j<17;j++){
+                 if(j>=iterations || !valid)break;
+                 vec2 midPos=pos+v;
+                 vec3 mid=field(midPos);
+                 if(mid.z<.12 || length(mid.xy)<.1){valid=false;break;}
+                 vec2 next=mid.xy;
+                 if(dot(next,v)<0.)next=-next;
+                 // Reject abrupt direction changes rather than drawing diagonal shortcuts.
+                 if(dot(normalize(next),normalize(v))<.55){valid=false;break;}
+                 pos+=next*2.;v=next;
+                 if(any(lessThan(pos,vec2(0.)))||any(greaterThanEqual(pos,uOut))){valid=false;break;}
+             }
+             // Also reject a segment when its far endpoint is invalid.
+             if(valid && endpoint==0){
+                 vec3 next=field(pos+v);
+                 if(next.z<.12 || length(next.xy)<.1 || abs(dot(normalize(next.xy),normalize(v)))<.55)valid=false;
+             }
+             gl_Position=valid?vec4(pos.x/uOut.x*2.-1.,1.-pos.y/uOut.y*2.,0.,1.):vec4(3.,3.,0.,1.);
+            }`;
+            const lineF=`#version 300 es
+            precision highp float;out vec4 frag;void main(){frag=vec4(vec3(34./255.),1.);}`;
+            function shader(type,source){let sh=gl.createShader(type);gl.shaderSource(sh,source);gl.compileShader(sh);
+                if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(sh));return sh;}
+            function program(v,f){let pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,v));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,f));gl.linkProgram(pr);
+                if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));return pr;}
+            function tex(w,h,internal,format,type){let t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
+                gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+                gl.texImage2D(gl.TEXTURE_2D,0,internal,w,h,0,format,type,null);return t;}
+            function init(){try{ // Reuse the existing WebGL2 context owned by gpuPatterns.
+                gl=canvas.getContext('webgl2');if(!gl||!gl.getExtension('EXT_color_buffer_float'))throw Error('Float render targets unavailable');
+                programs={grad:program(V,gradients),smooth:program(V,smooth),dir:program(V,directions),arrows:program(V,arrows),lines:program(lineV,lineF)};
+                vao=gl.createVertexArray();gl.bindVertexArray(vao);fb=gl.createFramebuffer();ready=true;return true;
+            }catch(e){console.warn('GPU vector fields unavailable:',e);ready=false;return false;}}
+            function resize(w=PW,h=PH){if(!ready)return;for(const t of Object.values(textures))gl.deleteTexture(t);
+                width=w;height=h;textures={source:tex(width,height,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE),a:tex(width,height,gl.RGBA32F,gl.RGBA,gl.FLOAT),b:tex(width,height,gl.RGBA32F,gl.RGBA,gl.FLOAT)};}
+            function pass(name,input,output){let pr=programs[name];gl.useProgram(pr);
+                if(name==='dir')gl.uniform1f(gl.getUniformLocation(pr,'uSensitivity'),contourSensitivity);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,input);
+                gl.uniform1i(gl.getUniformLocation(pr,'uTex'),0);gl.uniform2i(gl.getUniformLocation(pr,'uSize'),width,height);
+                gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,output,0);
+                gl.viewport(0,0,width,height);gl.drawArrays(gl.TRIANGLES,0,3);}
+            function draw(imageData,mode){if(!ready||gl.isContextLost())return false;
+                // Use a higher-resolution source for actual curved image contours.
+                const mobile=matchMedia('(max-width: 700px)').matches;
+                const fw=mobile?Math.max(150,Math.min(240,Math.round(PW*2.3))):Math.max(240,Math.min(360,Math.round(PW*3.5)));
+                const fh=Math.round(fw*PH/PW);
+                if(fieldCanvas.width!==fw||fieldCanvas.height!==fh){
+                    fieldCanvas.width=fw;fieldCanvas.height=fh;
+                }
+                const vw=video.videoWidth||fw,vh=video.videoHeight||fh;
+                const aspect=fw/fh;
+                let sx=0,sy=0,sw=vw,sh=vh;
+                if(vw/vh>aspect){sw=vh*aspect;sx=(vw-sw)/2;}
+                else{sh=vw/aspect;sy=(vh-sh)/2;}
+                if(mirrorCamera){fieldCtx.save();fieldCtx.translate(fw,0);fieldCtx.scale(-1,1);}
+                fieldCtx.drawImage(video,sx,sy,sw,sh,0,0,fw,fh);
+                if(mirrorCamera)fieldCtx.restore();
+                const detailed=fieldCtx.getImageData(0,0,fw,fh);
+                if(width!==fw||height!==fh)resize(fw,fh);
+                const targetW=fw*2,targetH=fh*2;
+                if(canvas.width!==targetW||canvas.height!==targetH){
+                    canvas.width=targetW;canvas.height=targetH;
+                }
+                gl.bindVertexArray(vao);gl.disable(gl.BLEND);
+                gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textures.source);
+                gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,detailed.data);
+                pass('grad',textures.source,textures.a);
+                pass('smooth',textures.a,textures.b);pass('smooth',textures.b,textures.a);
+                pass('dir',textures.a,textures.b);
+                gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);
+                gl.clearColor(250/255,248/255,242/255,1);gl.clear(gl.COLOR_BUFFER_BIT);
+                if(mode==='vectorfield'){
+                    let pr=programs.arrows;gl.useProgram(pr);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textures.b);
+                    gl.uniform1i(gl.getUniformLocation(pr,'uTex'),0);gl.uniform2i(gl.getUniformLocation(pr,'uSize'),width,height);
+                    gl.uniform2f(gl.getUniformLocation(pr,'uOut'),canvas.width,canvas.height);gl.uniform1f(gl.getUniformLocation(pr,'uScale'),2);
+                    gl.drawArrays(gl.TRIANGLES,0,3);
+                }else{
+                    let pr=programs.lines;gl.useProgram(pr);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textures.b);
+                    gl.uniform1i(gl.getUniformLocation(pr,'uField'),0);gl.uniform2i(gl.getUniformLocation(pr,'uSize'),width,height);
+                    gl.uniform2f(gl.getUniformLocation(pr,'uOut'),canvas.width,canvas.height);gl.uniform1f(gl.getUniformLocation(pr,'uScale'),2);
+                    let seedStep=mobile?16:13, nx=Math.ceil(canvas.width/seedStep),ny=Math.ceil(canvas.height/seedStep);
+                    gl.uniform1i(gl.getUniformLocation(pr,'uSeedsX'),nx);gl.uniform1f(gl.getUniformLocation(pr,'uSeedStep'),seedStep);
+                    // 2 separate strips per seed, preserving direction at the seed.
+                    gl.drawArraysInstanced(gl.LINES,0,64,Math.min(mobile?650:1400,nx*ny));
+                }
+                canvas.classList.add('camera-upright');
+                gpuPatterns.show(true);return true;
+            }
+            return {init,resize,draw,get enabled(){return ready;}};
+        })();
+        gpuFields.init();
+        const telemetry = document.getElementById('telemetry');
+        const errorOverlay = document.getElementById('error-overlay');
+        const kSlider = document.getElementById('k-slider');
+        const kVal = document.getElementById('k-val');
+        kSlider.max = MAX_K;
+        const speedSlider = document.getElementById('speed-slider');
+        const speedVal = document.getElementById('speed-val');
+        const modeSel = document.getElementById('mode');
+        let contourSensitivity=.83;
+        const contourSlider=document.getElementById('contour-intensity');
+        const contourValue=document.getElementById('contour-intensity-val');
+        contourSlider.addEventListener('input',()=>{
+            contourSensitivity=Number(contourSlider.value)/100;
+            contourValue.textContent=contourSlider.value;
+        });
+        const camToggle = document.getElementById('cam-toggle');
+        const lightToggle = document.getElementById('light-toggle');
+        const rowsEl = document.getElementById('region-rows');
+
+        const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let paused = reducedMotion, patternScale = 1, demoMode = false;
+        const pointStaticEl = document.getElementById('point-static');
+let pointStatic = false;
+pointStaticEl.addEventListener('change', () => {
+    pointStatic = pointStaticEl.checked;
+    // Re-enable drift slider only when animated; static mode ignores it.
+    pointMotionEl.disabled = pointStatic;
+});
+
+// Deterministic WSJ-style stipple: no motion, no time dependence.
+// Dot existence and size are decided by local darkness at a fixed grid point,
+// with a stable per-point hash so the pattern is identical every frame.
+// Deterministic WSJ-style stipple.
+// - Uniform dot size.
+// - Spacing is a per-region function: darker regions get tighter spacing,
+//   lighter regions get wider spacing.
+// - No motion, no time dependence; stable per-grid-point hash.
+// Deterministic WSJ-style stipple.
+// - Uniform dot size.
+// - Each K-means region has its own stipple lattice whose cell size is a
+//   direct function of that region's darkness (darker = tighter spacing).
+// - Static: no motion, no time dependence.
+
+
+
+
+
+
+function renderPointillismStatic() {
+    if (!lastAssign || !wsjSourceImageData) return;
+
+    const W = OUT_W;
+    const H = OUT_H;
+    const N = PW * PH;
+    const src = wsjSourceImageData.data;
+    const out = patternImg.data;
+    const shades = buildRegionShades();
+    const K = shades.length;
+
+    if (
+        !src ||
+        src.length < N * 4 ||
+        lastAssign.length < N ||
+        out.length < W * H * 4
+    ) return;
+
+    const baseSpacing = Math.max(
+        3,
+        6.5 * patternScale / Math.max(0.1, pointDensity)
+    );
+
+    const radius = Math.min(
+        5,
+        Math.max(0.5, baseSpacing * 0.3 * pointSize)
+    );
+
+    // Per-frame work limits.
+    const MAX_DOTS = 1800;
+    const MAX_SEEDS = 250;
+    const MAX_TRACE_STEPS = 48;
+    const MAX_CANDIDATES = 4000;
+
+    const spacing = new Float32Array(K);
+
+    for (let k = 0; k < K; k++) {
+        const darkness = Math.max(
+            0.005,
+            Math.min(1, shades[k]?.darkness ?? 0)
+        );
+        spacing[k] = baseSpacing / Math.sqrt(darkness);
+    }
+
+    // Paper background.
+    for (let i = 0; i < out.length; i += 4) {
+        out[i] = 250;
+        out[i + 1] = 248;
+        out[i + 2] = 242;
+        out[i + 3] = 255;
+    }
+
+    // ---------------------------------------
+    // Low-resolution structure tensor
+    // ---------------------------------------
+
+    const gray = new Float32Array(N);
+    const jxx = new Float32Array(N);
+    const jxy = new Float32Array(N);
+    const jyy = new Float32Array(N);
+
+    for (let i = 0; i < N; i++) {
+        const j = i * 4;
+        gray[i] =
+            src[j] * 0.2126 +
+            src[j + 1] * 0.7152 +
+            src[j + 2] * 0.0722;
+    }
+
+    for (let y = 1; y < PH - 1; y++) {
+        for (let x = 1; x < PW - 1; x++) {
+            const i = y * PW + x;
+
+            const gx =
+                (gray[i + 1] - gray[i - 1]) * 0.5;
+            const gy =
+                (gray[i + PW] - gray[i - PW]) * 0.5;
+
+            jxx[i] = gx * gx;
+            jxy[i] = gx * gy;
+            jyy[i] = gy * gy;
+        }
+    }
+
+    function smooth(a) {
+        const b = new Float32Array(N);
+
+        for (let y = 1; y < PH - 1; y++) {
+            for (let x = 1; x < PW - 1; x++) {
+                const i = y * PW + x;
+
+                b[i] = (
+                    a[i - PW] +
+                    a[i - 1] +
+                    4 * a[i] +
+                    a[i + 1] +
+                    a[i + PW]
+                ) / 8;
+            }
+        }
+
+        return b;
+    }
+
+    const A = smooth(smooth(jxx));
+    const B = smooth(smooth(jxy));
+    const C = smooth(smooth(jyy));
+
+    const dirX = new Float32Array(N);
+    const dirY = new Float32Array(N);
+
+    for (let i = 0; i < N; i++) {
+        const energy = A[i] + C[i];
+
+        let theta = 0;
+
+        if (energy > 1) {
+            theta =
+                0.5 * Math.atan2(
+                    2 * B[i],
+                    A[i] - C[i]
+                ) + Math.PI / 2;
+        }
+
+        dirX[i] = Math.cos(theta);
+        dirY[i] = Math.sin(theta);
+    }
+
+    function indexAt(x, y) {
+        const px = Math.floor(x / SCALE);
+        const py = Math.floor(y / SCALE);
+
+        if (
+            px < 0 || px >= PW ||
+            py < 0 || py >= PH
+        ) return -1;
+
+        return py * PW + px;
+    }
+
+    function regionAt(x, y) {
+        const i = indexAt(x, y);
+        return i < 0 ? -1 : lastAssign[i];
+    }
+
+    function directionAt(x, y, refX, refY) {
+        const i = indexAt(x, y);
+
+        if (i < 0) return null;
+
+        let dx = dirX[i];
+        let dy = dirY[i];
+
+        if (dx * refX + dy * refY < 0) {
+            dx = -dx;
+            dy = -dy;
+        }
+
+        return [dx, dy];
+    }
+
+    // ---------------------------------------
+    // Per-segment spatial exclusion grids
+    // ---------------------------------------
+
+    const grids = Array.from(
+        { length: K },
+        () => new Map()
+    );
+
+    function key(cx, cy) {
+        return `${cx},${cy}`;
+    }
+
+    function canPlace(x, y, k) {
+        if (regionAt(x, y) !== k) return false;
+
+        const s = spacing[k];
+        const s2 = s * s;
+        const cx = Math.floor(x / s);
+        const cy = Math.floor(y / s);
+        const grid = grids[k];
+
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const bucket = grid.get(
+                    key(cx + dx, cy + dy)
+                );
+
+                if (!bucket) continue;
+
+                for (const p of bucket) {
+                    const ddx = x - p.x;
+                    const ddy = y - p.y;
+
+                    if (ddx * ddx + ddy * ddy < s2) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    function registerDot(x, y, k) {
+        const s = spacing[k];
+        const cx = Math.floor(x / s);
+        const cy = Math.floor(y / s);
+        const grid = grids[k];
+        const cell = key(cx, cy);
+
+        let bucket = grid.get(cell);
+
+        if (!bucket) {
+            bucket = [];
+            grid.set(cell, bucket);
+        }
+
+        bucket.push({ x, y });
+    }
+
+    // ---------------------------------------
+    // Dot drawing
+    // ---------------------------------------
+
+    function drawDot(cx, cy) {
+        const x0 = Math.max(0, Math.floor(cx - radius - 1));
+        const x1 = Math.min(W - 1, Math.ceil(cx + radius + 1));
+        const y0 = Math.max(0, Math.floor(cy - radius - 1));
+        const y1 = Math.min(H - 1, Math.ceil(cy + radius + 1));
+
+        const r2 = (radius + 0.5) ** 2;
+
+        for (let y = y0; y <= y1; y++) {
+            for (let x = x0; x <= x1; x++) {
+                const dx = x + 0.5 - cx;
+                const dy = y + 0.5 - cy;
+                const d2 = dx * dx + dy * dy;
+
+                if (d2 > r2) continue;
+
+                const alpha = Math.min(
+                    0.9,
+                    Math.max(
+                        0,
+                        radius + 0.5 - Math.sqrt(d2)
+                    )
+                );
+
+                const o = (y * W + x) * 4;
+
+                out[o] = out[o] * (1 - alpha) + 18 * alpha;
+                out[o + 1] = out[o + 1] * (1 - alpha) + 18 * alpha;
+                out[o + 2] = out[o + 2] * (1 - alpha) + 18 * alpha;
+            }
+        }
+    }
+
+    let dotCount = 0;
+
+    function tryDot(x, y, k) {
+        if (dotCount >= MAX_DOTS) return false;
+        if (!canPlace(x, y, k)) return false;
+
+        registerDot(x, y, k);
+        drawDot(x, y);
+        dotCount++;
+
+        return true;
+    }
+
+    // ---------------------------------------
+    // Contour-following streamline tracing
+    // ---------------------------------------
+
+    function trace(seedX, seedY, k, sign) {
+        const s = spacing[k];
+        const step = Math.min(3, s * 0.5);
+
+        let x = seedX;
+        let y = seedY;
+        let traveled = 0;
+        let failures = 0;
+
+        const initial = directionAt(x, y, 1, 0);
+        if (!initial) return;
+
+        let vx = initial[0] * sign;
+        let vy = initial[1] * sign;
+
+        for (let n = 0; n < MAX_TRACE_STEPS; n++) {
+            if (dotCount >= MAX_DOTS) return;
+
+            const mid = directionAt(
+                x + vx * step * 0.5,
+                y + vy * step * 0.5,
+                vx, vy
+            );
+
+            if (!mid) return;
+
+            const nx = x + mid[0] * step;
+            const ny = y + mid[1] * step;
+
+            if (regionAt(nx, ny) !== k) return;
+
+            x = nx;
+            y = ny;
+            vx = mid[0];
+            vy = mid[1];
+
+            traveled += step;
+
+            if (traveled >= s) {
+                if (tryDot(x, y, k)) {
+                    failures = 0;
+                } else {
+                    failures++;
+                    if (failures >= 3) return;
+                }
+
+                traveled -= s;
+            }
+        }
+    }
+
+    // ---------------------------------------
+    // Seed selection
+    // ---------------------------------------
+
+    let seedCount = 0;
+    let candidates = 0;
+
+    const seedStep = Math.max(
+        3,
+        baseSpacing * 0.9
+    );
+
+    outer:
+    for (
+        let y = seedStep * 0.5;
+        y < H;
+        y += seedStep
+    ) {
+        for (
+            let x = seedStep * 0.5;
+            x < W;
+            x += seedStep
+        ) {
+            if (
+                seedCount >= MAX_SEEDS ||
+                candidates >= MAX_CANDIDATES ||
+                dotCount >= MAX_DOTS
+            ) break outer;
+
+            candidates++;
+
+            const k = regionAt(x, y);
+
+            if (k < 0 || k >= K) continue;
+            if (!tryDot(x, y, k)) continue;
+
+            seedCount++;
+
+            trace(x, y, k, 1);
+            trace(x, y, k, -1);
+        }
+    }
+
+    outCtx.putImageData(patternImg, 0, 0);
+}
+
+
+
+        const pauseBtn = document.getElementById('pause-patterns');
+        function syncPause() { pauseBtn.textContent = paused ? 'Resume motion' : 'Pause motion'; pauseBtn.setAttribute('aria-pressed', String(paused)); }
+        syncPause();
+        pauseBtn.onclick = () => { paused = !paused; syncPause(); };
+        document.getElementById('scale-slider').oninput = e => { patternScale = +e.target.value; document.getElementById('scale-val').textContent = patternScale.toFixed(1); };
+        document.getElementById('save-frame').onclick = () => {
+            const link = document.createElement('a'); link.download = 'pattern-studio.png'; link.href = (gpuPatterns.active ? gpuPatterns.canvas : outCanvas).toDataURL('image/png'); link.click();
+        };
+        document.querySelectorAll('[data-preset]').forEach(button => button.onclick = () => {
+            const name = button.dataset.preset;
+            const patterns = { starlight: [12, 12, 13, 3], print: [0, 1, 3, 2], cosmic: [9, 10, 13, 12] }[name];
+            regionCfg.forEach((cfg, i) => { cfg.pattern = patterns[i % patterns.length]; cfg.motion = name === 'starlight' ? 2 : 3; cfg.speed = .4 + (i % 10) * .15; });
+            modeSel.value = name === 'print' ? 'paper' : 'contourflow';
+            document.querySelectorAll('[data-preset]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+            syncSpectrumUI();
+        });
+        if (!reducedMotion) {
+            const stars = document.getElementById('entrance-stars');
+            for (let i = 0; i < 26; i++) {
+                const star = document.createElement('span'); star.className = 'entrance-star'; star.textContent = '✦';
+                star.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*90}%;animation-delay:${Math.random()*.9}s;font-size:${12+Math.random()*24}px`;
+                stars.append(star);
+            }
+            setTimeout(() => stars.remove(), 4000);
+        }
+
+        // ---------- edge vibration ----------
+        const vibFreqEl = document.getElementById('vib-freq');
+        const vibAmpEl = document.getElementById('vib-amp');
+        let vibFreq = parseFloat(vibFreqEl.value);
+        let vibAmp = parseFloat(vibAmpEl.value);
+        let vibPhase = 0;
+        let warpX = new Float32Array(OUT_H);
+        let warpY = new Float32Array(OUT_W);
+
+        vibFreqEl.addEventListener('input', () => {
+            vibFreq = parseFloat(vibFreqEl.value);
+            document.getElementById('vib-freq-val').textContent = vibFreq.toFixed(1);
+        });
+        vibAmpEl.addEventListener('input', () => {
+            vibAmp = parseFloat(vibAmpEl.value);
+            document.getElementById('vib-amp-val').textContent = vibAmp;
+        });
+
+        // ---------- sound-driven edges ----------
+        const micBtn = document.getElementById('mic-toggle');
+        const scope = document.getElementById('scope');
+        const scopeCtx = scope.getContext('2d');
+        const gainEl = document.getElementById('snd-gain');
+        let sndGain = parseFloat(gainEl.value);
+        let audioCtx = null, analyser = null, micStream = null, wave = null, micOn = false;
+        const audioLinesOnly = document.getElementById('audio-lines-only');
+        const constantWaveformBrightness = document.getElementById('constant-waveform-brightness');
+        function spectrumEnabled() { if (['cartoon', 'pointillism', 'vectorfield', 'contourflow'].includes(modeSel.value)) return false; return modeSel.value === 'spectrum' || modeSel.value === 'edges' || (audioActive() && audioLinesOnly.checked); }
+        audioLinesOnly.addEventListener('change', syncSpectrumUI);
+        let fftBins = null, rotationScale = 1, lastBandUI = 0;
+        const bands = Array.from({length: MAX_K}, () => ({low: 0, high: 0, frequency: 0, level: 0, phase: 0, rotation: 0, trace: new Float32Array(4096), tracePeak: 0, traceStart: 0, traceStep: 1}));
+        const rotationSlider = document.getElementById('rotation-slider');
+        rotationSlider.addEventListener('input', () => {
+            rotationScale = +rotationSlider.value;
+            document.getElementById('rotation-val').textContent = rotationScale.toFixed(1);
+        });
+        function bandLimits(index, count, sampleRate) {
+            const high = Math.min(16000, sampleRate / 2), low = Math.min(40, high / 2);
+            return [low * (high / low) ** (index / count), low * (high / low) ** ((index + 1) / count)];
+        }
+        function measureBand(bins, sampleRate, low, high) {
+            const binHz = sampleRate / (bins.length * 2);
+            const first = Math.max(1, Math.ceil(low / binHz));
+            const end = Math.min(bins.length, Math.ceil(high / binHz));
+            let power = 0, weighted = 0;
+            for (let i = first; i < end; i++) {
+                const db = bins[i];
+                if (!Number.isFinite(db) || db < -90) continue;
+                const energy = 10 ** (db / 10);
+                power += energy; weighted += energy * i * binHz;
+            }
+            return {frequency: power > 0 ? weighted / power : Math.sqrt(low * high), amplitude: Math.sqrt(power)};
+        }
+
+
+let imageVectorField = null;
+
+function buildImageVectorField(imageData) {
+    const W = PW;
+    const H = PH;
+    const N = W * H;
+    const src = imageData.data;
+
+    if (src.length < N * 4) return null;
+
+    const gray = new Float32Array(N);
+    const xx = new Float32Array(N);
+    const xy = new Float32Array(N);
+    const yy = new Float32Array(N);
+
+    for (let i = 0; i < N; i++) {
+        const j = i * 4;
+        gray[i] =
+            0.2126 * src[j] +
+            0.7152 * src[j + 1] +
+            0.0722 * src[j + 2];
+    }
+
+    // Structure tensor from image gradients.
+    for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+            const i = y * W + x;
+
+            const gx = (gray[i + 1] - gray[i - 1]) * 0.5;
+            const gy = (gray[i + W] - gray[i - W]) * 0.5;
+
+            xx[i] = gx * gx;
+            xy[i] = gx * gy;
+            yy[i] = gy * gy;
+        }
+    }
+
+    // Smooth tensor to reduce noisy directions.
+    function smooth(a) {
+        const b = new Float32Array(N);
+
+        for (let y = 1; y < H - 1; y++) {
+            for (let x = 1; x < W - 1; x++) {
+                const i = y * W + x;
+
+                b[i] = (
+                    a[i - W] +
+                    a[i - 1] +
+                    4 * a[i] +
+                    a[i + 1] +
+                    a[i + W]
+                ) / 8;
+            }
+        }
+
+        return b;
+    }
+
+    const A = smooth(smooth(xx));
+    const B = smooth(smooth(xy));
+    const C = smooth(smooth(yy));
+
+    const dx = new Float32Array(N);
+    const dy = new Float32Array(N);
+    const strength = new Float32Array(N);
+
+    for (let i = 0; i < N; i++) {
+        const energy = A[i] + C[i];
+        const coherence = Math.hypot(
+            A[i] - C[i],
+            2 * B[i]
+        );
+
+        // Tangent direction, perpendicular to gradient.
+        const theta =
+            0.5 * Math.atan2(
+                2 * B[i],
+                A[i] - C[i]
+            ) + Math.PI / 2;
+
+        dx[i] = Math.cos(theta);
+        dy[i] = Math.sin(theta);
+
+        // Confidence in local orientation.
+        strength[i] = energy > 0
+            ? Math.min(1, coherence / energy)
+            : 0;
+    }
+
+    return { W, H, dx, dy, strength };
+}
+
+function renderVectorField() {
+    const f = imageVectorField;
+    if (!f) return;
+    outCtx.fillStyle = '#faf8f2';
+    outCtx.fillRect(0, 0, OUT_W, OUT_H);
+    outCtx.strokeStyle = '#202020';
+    outCtx.lineWidth = 1;
+    outCtx.lineCap = 'round';
+    const step = 4;
+    const len = Math.min(step * SCALE * 0.75, 11);
+    for (let py = 2; py < f.H - 2; py += step) {
+        for (let px = 2; px < f.W - 2; px += step) {
+            const i = py * f.W + px;
+            if (f.strength[i] < 0.12) continue;
+            const vx = f.dx[i], vy = f.dy[i];
+            const x = (px + 0.5) * SCALE, y = (py + 0.5) * SCALE;
+            const ex = x + vx * len * 0.5, ey = y + vy * len * 0.5;
+            const sx = x - vx * len * 0.5, sy = y - vy * len * 0.5;
+            const head = Math.min(2.5, len * 0.28);
+            outCtx.beginPath();
+            outCtx.moveTo(sx, sy);
+            outCtx.lineTo(ex, ey);
+            outCtx.moveTo(ex, ey);
+            outCtx.lineTo(ex - vx * head - vy * head * 0.5, ey - vy * head + vx * head * 0.5);
+            outCtx.moveTo(ex, ey);
+            outCtx.lineTo(ex - vx * head + vy * head * 0.5, ey - vy * head - vx * head * 0.5);
+            outCtx.stroke();
+        }
+    }
+}
+
+function renderContourFlow() {
+    if (!imageVectorField) return;
+
+    const field = imageVectorField;
+    const W = OUT_W;
+    const H = OUT_H;
+
+    outCtx.fillStyle = "#faf8f2";
+    outCtx.fillRect(0, 0, W, H);
+
+    outCtx.strokeStyle = "#222";
+    outCtx.lineWidth = Math.max(0.6, pointSize);
+    outCtx.lineCap = "round";
+    outCtx.lineJoin = "round";
+
+    const seedStep = 9 * SCALE;
+    const traceStep = 2;
+    const maxSteps = 100;
+    const maxSeeds = 450;
+
+    function sample(x, y, refX, refY) {
+        const px = Math.floor(x / SCALE);
+        const py = Math.floor(y / SCALE);
+
+        if (
+            px < 0 || px >= field.W ||
+            py < 0 || py >= field.H
+        ) return null;
+
+        const i = py * field.W + px;
+
+        if (field.strength[i] < 0.08) return null;
+
+        let vx = field.dx[i];
+        let vy = field.dy[i];
+
+        // Prevent direction reversals along a streamline.
+        if (vx * refX + vy * refY < 0) {
+            vx = -vx;
+            vy = -vy;
+        }
+
+        return [vx, vy];
+    }
+
+    function trace(sx, sy, sign) {
+        const first = sample(sx, sy, 1, 0);
+        if (!first) return [];
+
+        let vx = first[0] * sign;
+        let vy = first[1] * sign;
+        let x = sx;
+        let y = sy;
+
+        const points = [];
+
+        for (let n = 0; n < maxSteps; n++) {
+            const mid = sample(
+                x + vx * traceStep * 0.5,
+                y + vy * traceStep * 0.5,
+                vx, vy
+            );
+
+            if (!mid) break;
+
+            const nx = x + mid[0] * traceStep;
+            const ny = y + mid[1] * traceStep;
+
+            if (
+                nx < 0 || nx >= W ||
+                ny < 0 || ny >= H
+            ) break;
+
+            points.push([nx, ny]);
+
+            x = nx;
+            y = ny;
+            vx = mid[0];
+            vy = mid[1];
+        }
+
+        return points;
+    }
+
+    let seeds = 0;
+
+    outer:
+    for (
+        let y = seedStep / 2;
+        y < H;
+        y += seedStep
+    ) {
+        for (
+            let x = seedStep / 2;
+            x < W;
+            x += seedStep
+        ) {
+            if (seeds >= maxSeeds) break outer;
+
+            const backward = trace(x, y, -1);
+            const forward = trace(x, y, 1);
+
+            if (
+                backward.length < 3 &&
+                forward.length < 3
+            ) continue;
+
+            seeds++;
+
+            outCtx.beginPath();
+
+            for (let i = backward.length - 1; i >= 0; i--) {
+                const p = backward[i];
+
+                if (i === backward.length - 1) {
+                    outCtx.moveTo(p[0], p[1]);
+                } else {
+                    outCtx.lineTo(p[0], p[1]);
+                }
+            }
+
+            outCtx.lineTo(x, y);
+
+            for (const p of forward) {
+                outCtx.lineTo(p[0], p[1]);
+            }
+
+            outCtx.stroke();
+        }
+    }
+}
+
+
+
+        const TRACE_N = 4096;
+        const traceReal = new Float32Array(TRACE_N), traceImag = new Float32Array(TRACE_N);
+        const filteredReal = new Float32Array(TRACE_N), filteredImag = new Float32Array(TRACE_N);
+        let lastTraceTime = -Infinity;
+        const layerHistory = new Float32Array(TRACE_N / 2);
+        const layerMagnitude = new Float32Array(TRACE_N / 2);
+        function filterLayer(layer, sampleRate, output) {
+            filteredReal.fill(0); filteredImag.fill(0);
+            let power = 0, weighted = 0;
+            for (let bin = 1; bin < TRACE_N / 2; bin++) {
+                const hz = bin * sampleRate / TRACE_N;
+                if (hz < 40 || hz > 16000) continue;
+                let neighborhood = 0, count = 0;
+                for (let j = Math.max(1, bin - 8); j <= Math.min(TRACE_N / 2 - 1, bin + 8); j++) { neighborhood += layerMagnitude[j]; count++; }
+                neighborhood /= count;
+                const stable = layerHistory[bin];
+                const tonal = stable * stable / (stable * stable + neighborhood * neighborhood + 1e-12);
+                const bass = 1 / (1 + (hz / 220) ** 6);
+                const high = (1 - bass) / (1 + (4500 / hz) ** 6);
+                const middle = 1 - bass - high;
+                const mask = layer === 0 ? bass : layer === 1 ? middle * (1 - tonal) : layer === 2 ? middle * tonal : high;
+                for (const index of [bin, TRACE_N - bin]) { filteredReal[index] = traceReal[index] * mask; filteredImag[index] = traceImag[index] * mask; }
+                const energy = (traceReal[bin] ** 2 + traceImag[bin] ** 2) * mask * mask;
+                power += energy; weighted += energy * hz;
+            }
+            fft(filteredReal, filteredImag, true); output.set(filteredReal);
+            return {frequency: power ? weighted / power : 200, amplitude: Math.sqrt(2 * power) / TRACE_N};
+        }
+        function fft(real, imag, inverse = false) {
+            const n = real.length;
+            for (let i = 1, j = 0; i < n; i++) {
+                let bit = n >> 1;
+                for (; j & bit; bit >>= 1) j ^= bit;
+                j ^= bit;
+                if (i < j) { [real[i], real[j]] = [real[j], real[i]]; [imag[i], imag[j]] = [imag[j], imag[i]]; }
+            }
+            for (let size = 2; size <= n; size <<= 1) {
+                const angle = (inverse ? 2 : -2) * Math.PI / size;
+                const wr = Math.cos(angle), wi = Math.sin(angle);
+                for (let start = 0; start < n; start += size) {
+                    let cr = 1, ci = 0;
+                    for (let j = 0; j < size / 2; j++) {
+                        const a = start + j, b = a + size / 2;
+                        const tr = cr * real[b] - ci * imag[b], ti = cr * imag[b] + ci * real[b];
+                        real[b] = real[a] - tr; imag[b] = imag[a] - ti;
+                        real[a] += tr; imag[a] += ti;
+                        const next = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = next;
+                    }
+                }
+            }
+            if (inverse) for (let i = 0; i < n; i++) { real[i] /= n; imag[i] /= n; }
+        }
+        function filterTrace(real, imag, sampleRate, low, high, output) {
+            filteredReal.fill(0); filteredImag.fill(0);
+            const binHz = sampleRate / TRACE_N;
+            for (let bin = Math.max(1, Math.ceil(low / binHz)); bin < Math.min(TRACE_N / 2, Math.ceil(high / binHz)); bin++) {
+                filteredReal[bin] = real[bin]; filteredImag[bin] = imag[bin];
+                filteredReal[TRACE_N - bin] = real[TRACE_N - bin]; filteredImag[TRACE_N - bin] = imag[TRACE_N - bin];
+            }
+            fft(filteredReal, filteredImag, true);
+            output.set(filteredReal);
+        }
+        function updateWaveformTraces(sampleRate, now) {
+            if (now - lastTraceTime < 1000 / 30) return;
+            lastTraceTime = now;
+            analyser.getFloatTimeDomainData(wave);
+            const offset = Math.max(0, wave.length - TRACE_N);
+            for (let i = 0; i < TRACE_N; i++) traceReal[i] = wave[offset + i];
+            traceImag.fill(0);
+            fft(traceReal, traceImag);
+            const kind = analysisMode();
+            if (kind === 'layers') for (let bin = 0; bin < TRACE_N / 2; bin++) {
+                layerMagnitude[bin] = Math.hypot(traceReal[bin], traceImag[bin]);
+                layerHistory[bin] = .8 * layerHistory[bin] + .2 * layerMagnitude[bin];
+            }
+            const layerCache = [];
+            for (let c = 0; c < K; c++) {
+                const b = bands[c];
+                if (kind === 'stems' && stemAnalysers.length === 4) {
+                    const data = stemData[c % 4]; stemAnalysers[c % 4].getFloatTimeDomainData(data.wave);
+                    b.trace.set(data.wave.subarray(data.wave.length - TRACE_N));
+                } else if (kind === 'layers') {
+                    const layer = c % 4;
+                    if (!layerCache[layer]) {
+                        const reading = filterLayer(layer, sampleRate, b.trace);
+                        layerCache[layer] = {reading, trace: b.trace};
+                    } else b.trace.set(layerCache[layer].trace);
+                    b.measuredAmplitude = layerCache[layer].reading.amplitude;
+                    b.frequency = layerCache[layer].reading.frequency;
+                } else filterTrace(traceReal, traceImag, sampleRate, b.low, b.high, b.trace);
+                let peak = 0;
+                for (let i = 0; i < TRACE_N; i++) peak = Math.max(peak, Math.abs(b.trace[i]));
+                b.tracePeak = peak;
+                b.traceStart = TRACE_N / 4;
+                for (let i = TRACE_N / 4; i < TRACE_N / 2; i++) {
+                    if (b.trace[i - 1] <= 0 && b.trace[i] > 0) { b.traceStart = i; break; }
+                }
+                const cycles = 3 + 7 * Math.max(0, Math.min(1, Math.log(b.frequency / 40) / Math.log(400)));
+                b.traceStep = Math.min(TRACE_N / 2, sampleRate / Math.max(40, b.frequency) * cycles) / OUT_W;
+            }
+        }
+        function traceAt(band, position) {
+            const location = band.traceStart + position * band.traceStep;
+            const floor = Math.floor(location), fraction = location - floor;
+            const index = ((floor % TRACE_N) + TRACE_N) % TRACE_N;
+            return (band.trace[index] * (1 - fraction) + band.trace[(index + 1) % TRACE_N] * fraction) / Math.max(.00001, band.tracePeak);
+        }
+        function updateSpectrum(dt, now) {
+            const active = audioActive() && analyser && fftBins;
+            const sampleRate = audioCtx ? audioCtx.sampleRate : 48000;
+            if (active) analyser.getFloatFrequencyData(fftBins);
+            const kind = analysisMode();
+            if (active && kind === 'layers') updateWaveformTraces(sampleRate, now);
+            if (active && kind === 'stems') stemAnalysers.forEach((node, i) => node.getFloatFrequencyData(stemData[i].bins));
+            for (let i = 0; i < K; i++) {
+                const b = bands[i];
+                [b.low, b.high] = bandLimits(i, K, sampleRate);
+                const reading = !active ? {frequency: Math.sqrt(b.low*b.high), amplitude: 0}
+                    : kind === 'layers' ? {frequency: b.frequency || 200, amplitude: b.measuredAmplitude || 0}
+                    : kind === 'stems' && stemData.length === 4 ? measureBand(stemData[i % 4].bins, sampleRate, 40, Math.min(16000, sampleRate / 2))
+                    : measureBand(fftBins, sampleRate, b.low, b.high);
+                const target = Math.tanh(reading.amplitude * sndGain);
+                const blend = 1 - Math.exp(-dt / (target > b.level ? .045 : .18));
+                b.level += (target - b.level) * blend;
+                b.frequency = reading.frequency;
+                b.rotation = (b.rotation + (i + 1) * .12 * rotationScale * dt) % (2 * Math.PI);
+            }
+            if (active && kind !== 'layers') updateWaveformTraces(sampleRate, now);
+            if (now - lastBandUI > 100) { updateBandReadings(); lastBandUI = now; }
+        }
+        function updateBandReadings() {
+            for (let i = 0; i < K; i++) {
+                const b = bands[i], reading = document.getElementById('band-reading-' + i), fill = document.getElementById('band-fill-' + i);
+                if (reading) reading.textContent = `${audioActive() && b.level > .001 ? Math.round(b.frequency) + ' Hz average' : 'Waiting for audio'} · ${Math.round(b.level * 100)}% response`;
+                if (fill) fill.style.width = `${b.level * 100}%`;
+            }
+        }
+        function syncSpectrumUI() {
+            const enabled = spectrumEnabled();
+            const edges = modeSel.value === 'edges';
+            const cartoon = modeSel.value === 'cartoon';
+            const pointillism = modeSel.value === 'pointillism';
+            const contourFlow = modeSel.value === 'contourflow';
+            // Contour Flow ignores the pattern sliders (regions, speed, vibration, sound gain, pattern size);
+            // show only its sensitivity slider, moved to the top of the render controls, and restore
+            // the full layout for every other mode.
+            document.querySelectorAll('#main-controls-row .pattern-slider').forEach(el => el.classList.toggle('hidden', contourFlow));
+            document.getElementById('scale-row').classList.toggle('hidden', contourFlow);
+            const contourBlock = document.getElementById('contour-intensity-controls');
+            const mainControlsRow = document.getElementById('main-controls-row');
+            const deck = document.getElementById('control-deck');
+            const headerLeft = document.querySelector('.studio-header > div');
+            // In Contour Flow, the slider sits directly under the page title and the deck's top
+            // matter (eyebrow, subtitle, title, intro, presets, status) is removed. Other modes
+            // restore the slider and all of that top matter to their normal places.
+            if (contourFlow) {
+                if (contourBlock.parentElement !== headerLeft) headerLeft.appendChild(contourBlock);
+            } else if (contourBlock.previousElementSibling !== mainControlsRow) {
+                mainControlsRow.after(contourBlock);
+            }
+            document.getElementById('header-eyebrow').classList.toggle('hidden', contourFlow);
+            document.getElementById('header-subtitle').classList.toggle('hidden', contourFlow);
+            document.getElementById('deck-title').classList.toggle('hidden', contourFlow);
+            document.getElementById('deck-intro').classList.toggle('hidden', contourFlow);
+            deck.querySelector('.presets').classList.toggle('hidden', contourFlow);
+            document.getElementById('telemetry').classList.toggle('hidden', contourFlow);
+            document.querySelectorAll('#contour-intensity-controls .hint').forEach(el => el.classList.toggle('hidden', contourFlow));
+            document.getElementById('cartoon-controls').classList.toggle('hidden', !cartoon);
+            document.getElementById('pointillism-controls').classList.toggle('hidden', !pointillism);
+            document.getElementById('edge-controls').classList.toggle('hidden', !edges);
+            audioLinesOnly.disabled = edges || cartoon || pointillism;
+            audioLinesOnly.title = edges ? 'Image contours are the animated lines in edge mode.' : '';
+            document.getElementById('scale-slider').disabled = edges || cartoon;
+            lastTraceTime = -Infinity;
+            document.getElementById('spectrum-controls').classList.toggle('hidden', !enabled);
+            document.getElementById('spectrum-description').textContent = (analysisMode() === 'bands'
+                ? 'Each region gets one logarithmic frequency band, from bass to treble.'
+                : analysisMode() === 'stems' ? 'Regions draw the actual waveforms of the separated vocals, drums, bass, and other instruments.'
+                : 'Regions draw approximate low-end, percussive, tonal, and high-texture waveforms.')
+                + ' Sound gain controls sensitivity; vibration depth controls wave height. Rotation is independent of global speed.';
+            document.getElementById('randomize').disabled = enabled || cartoon || pointillism;
+            speedSlider.disabled = enabled || cartoon;
+            vibFreqEl.disabled = enabled || cartoon || pointillism || audioActive();
+            vibAmpEl.disabled = cartoon || pointillism;
+            document.getElementById('region-hint').textContent = cartoon ? 'Scene palette · use Regions (K) to adjust the number of flat colors.'
+                : pointillism ? 'Dots follow K-means regions. Darker regions fill densely; the brightest ~20% are drawn as a black-dot outline instead.'
+                : enabled ? (analysisMode() === 'bands' ? 'Regions 1–K map from low to high frequencies. Meters show vibration strength after gain.' : 'Regions cycle through four sound layers. Set K to 4 for one region per layer.')
+                : 'Pattern, movement, and speed for each color region.';
+            warpX.fill(0); warpY.fill(0);
+            buildRegionPanel();
+        }
+        modeSel.addEventListener('change', () => { clearPreset(); syncSpectrumUI(); });
+        const WIN = 1024;
+
+        gainEl.addEventListener('input', () => {
+            sndGain = parseFloat(gainEl.value);
+            document.getElementById('snd-gain-val').textContent = sndGain;
+        });
+
+        const audioInput = document.getElementById('audio-input');
+        const audioAnalysis = document.getElementById('audio-analysis');
+        const audioStatus = document.getElementById('audio-status');
+        const songPlay = document.getElementById('song-play');
+        const songSeek = document.getElementById('song-seek');
+        const songVolume = document.getElementById('song-volume');
+        const separateButton = document.getElementById('separate-song');
+        const separationStatus = document.getElementById('separation-status');
+        let micNode = null, masterGain = null, silentGain = null;
+        let inputGeneration = 0, fileGeneration = 0, playbackGeneration = 0;
+        let songBuffer = null, songOffset = 0, songStartedAt = 0, songPlaying = false;
+        let playbackNodes = [], stemBuffers = [], stemAnalysers = [], stemData = [];
+        let separationJob = null, separationGeneration = 0, separationPending = false, apiToken = null;
+        const stemNames = ['Vocals', 'Drums', 'Bass', 'Other'];
+        const layerNames = ['Bass / low end', 'Percussive attacks', 'Sustained tones', 'High texture'];
+        function analysisMode() { return audioAnalysis.value === 'stems' && stemBuffers.length !== 4 ? 'bands' : audioAnalysis.value; }
+        function audioActive() { return micOn || songPlaying; }
+        function resetAudioEffects() {
+            lastTraceTime = -Infinity;
+            bands.forEach(b => { b.level = 0; b.measuredAmplitude = 0; b.trace.fill(0); b.tracePeak = 0; });
+            if (typeof layerHistory !== 'undefined') layerHistory.fill(0);
+            warpX.fill(0); warpY.fill(0);
+            scopeCtx.clearRect(0, 0, scope.width, scope.height);
+            updateBandReadings();
+        }
+        async function ensureAudioContext() {
+            if (!audioCtx || audioCtx.state === 'closed') {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser(); analyser.fftSize = 8192; analyser.smoothingTimeConstant = .35;
+                fftBins = new Float32Array(analyser.frequencyBinCount); wave = new Float32Array(analyser.fftSize);
+                masterGain = audioCtx.createGain(); masterGain.gain.value = +songVolume.value; masterGain.connect(audioCtx.destination);
+                silentGain = audioCtx.createGain(); silentGain.gain.value = 0; silentGain.connect(audioCtx.destination);
+                analyser.connect(silentGain);
+            }
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+        }
+        function stopMicrophone() {
+            inputGeneration++;
+            if (micStream) micStream.getTracks().forEach(t => t.stop());
+            if (micNode) micNode.disconnect();
+            micStream = null; micNode = null; micOn = false;
+            micBtn.textContent = 'Sound: Off'; micBtn.className = audioInput.value === 'file' ? 'hidden' : ''; micBtn.disabled = false;
+        }
+        async function startMic() {
+            pauseSong(); stopMicrophone();
+            const generation = inputGeneration;
+            micBtn.disabled = true;
+            audioStatus.textContent = 'Waiting for microphone permission…';
+            try {
+                await ensureAudioContext();
+                if (generation !== inputGeneration || audioInput.value !== 'mic') return;
+                const stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
+                if (generation !== inputGeneration || audioInput.value !== 'mic') { stream.getTracks().forEach(t => t.stop()); return; }
+                micStream = stream; micNode = audioCtx.createMediaStreamSource(stream); micNode.connect(analyser);
+                micOn = true; micBtn.textContent = 'Sound: On'; micBtn.className = 'active-light';
+                resetAudioEffects(); scope.classList.remove('hidden'); syncSpectrumUI();
+                audioStatus.textContent = 'Live microphone · effects only; microphone audio is not sent to speakers.';
+                if (vibAmp < 6) { vibAmp = 8; vibAmpEl.value = 8; document.getElementById('vib-amp-val').textContent = 8; }
+                if (!loopStarted) makeDemo();
+            } catch (error) {
+                if (generation !== inputGeneration) return;
+                stopMicrophone(); resetAudioEffects(); syncSpectrumUI();
+                const blocked = error && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+                audioStatus.textContent = blocked && embeddedInFrame()
+                    ? 'Microphone blocked in this embedded preview. On iPhone, open the page directly in Safari.'
+                    : 'Microphone unavailable. Check permission, or choose an uploaded song.';
+            } finally { if (generation === inputGeneration) micBtn.disabled = false; }
+        }
+        function stopMic() {
+            stopMicrophone(); resetAudioEffects(); syncSpectrumUI();
+            scope.classList.add('hidden'); audioStatus.textContent = 'Microphone off.';
+        }
+        function playbackPosition() {
+            if (!songBuffer) return 0;
+            return Math.min(songBuffer.duration, songOffset + (songPlaying ? Math.max(0, audioCtx.currentTime - songStartedAt) : 0));
+        }
+        function disconnectPlayback() {
+            playbackGeneration++;
+            for (const node of playbackNodes) { node.onended = null; try { node.stop(); } catch {} node.disconnect(); }
+            playbackNodes = [];
+            stemAnalysers.forEach(node => node.disconnect()); stemAnalysers = []; stemData = [];
+        }
+        function pauseSong() {
+            if (songPlaying) songOffset = playbackPosition();
+            songPlaying = false; disconnectPlayback();
+            songPlay.textContent = 'Play song';
+            if (analyser) resetAudioEffects();
+            updatePlaybackUI();
+        }
+        async function playSong() {
+            if (!songBuffer) return;
+            stopMicrophone();
+            const generation = inputGeneration;
+            try {
+                await ensureAudioContext();
+                if (generation !== inputGeneration || audioInput.value !== 'file') return;
+                disconnectPlayback();
+                if (songOffset >= songBuffer.duration - .01) songOffset = 0;
+                songStartedAt = audioCtx.currentTime + .04;
+                const playbackId = playbackGeneration;
+                const source = audioCtx.createBufferSource(); source.buffer = songBuffer;
+                source.connect(analyser); source.connect(masterGain);
+                playbackNodes.push(source);
+                stemBuffers.forEach(buffer => {
+                    const stem = audioCtx.createBufferSource(); stem.buffer = buffer;
+                    const meter = audioCtx.createAnalyser(); meter.fftSize = 8192; meter.smoothingTimeConstant = .2;
+                    stem.connect(meter); meter.connect(silentGain);
+                    playbackNodes.push(stem); stemAnalysers.push(meter);
+                    stemData.push({bins: new Float32Array(meter.frequencyBinCount), wave: new Float32Array(meter.fftSize)});
+                });
+                playbackNodes.forEach(node => node.start(songStartedAt, Math.min(songOffset, Math.max(0, node.buffer.duration - .001))));
+                source.onended = () => {
+                    if (playbackId !== playbackGeneration) return;
+                    songOffset = songBuffer.duration; songPlaying = false; disconnectPlayback(); resetAudioEffects();
+                    songPlay.textContent = 'Replay song'; syncSpectrumUI(); updatePlaybackUI();
+                    audioStatus.textContent = 'Song finished.';
+                };
+                songPlaying = true; songPlay.textContent = 'Pause song';
+                resetAudioEffects(); scope.classList.remove('hidden'); syncSpectrumUI();
+                audioStatus.textContent = 'Playing song · sound and effects share the same playback clock.';
+                if (!loopStarted) makeDemo();
+            } catch (error) {
+                pauseSong(); syncSpectrumUI(); audioStatus.textContent = 'Could not start playback: ' + error.message;
+            }
+        }
+        function formatTime(time) { time = Math.max(0, Math.floor(time || 0)); return `${Math.floor(time / 60)}:${String(time % 60).padStart(2, '0')}`; }
+        function updatePlaybackUI() {
+            const position = playbackPosition();
+            songSeek.value = position;
+            document.getElementById('song-time').textContent = `${formatTime(position)} / ${formatTime(songBuffer ? songBuffer.duration : 0)}`;
+        }
+        function syncAnalysisUI() {
+            const mode = analysisMode();
+            document.getElementById('analysis-note').textContent = mode === 'layers'
+                ? 'Approximate layers: low end, percussive attacks, sustained tones, and high texture. These are signal-based estimates, not isolated instrument tracks.'
+                : mode === 'stems' ? 'AI-separated vocals, drums, bass, and other instruments. Regions cycle through these four stems. The original song remains audible.'
+                : 'One frequency range per region, from bass to treble.';
+            resetAudioEffects(); syncSpectrumUI();
+        }
+        audioAnalysis.addEventListener('change', () => {
+            if (modeSel.value !== 'edges' && modeSel.value !== 'cartoon') modeSel.value = 'spectrum'; clearPreset(); syncAnalysisUI();
+        });
+        audioInput.addEventListener('change', () => {
+            stopMicrophone(); pauseSong();
+            const isFile = audioInput.value === 'file';
+            document.getElementById('song-controls').classList.toggle('hidden', !isFile);
+            micBtn.classList.toggle('hidden', isFile);
+            document.getElementById('stems-option').disabled = !isFile || stemBuffers.length !== 4;
+            if (!isFile && audioAnalysis.value === 'stems') audioAnalysis.value = 'layers';
+            scope.classList.add('hidden'); syncAnalysisUI();
+            audioStatus.textContent = isFile ? 'Choose a song, then press Play song.' : 'Press Sound to use the microphone.';
+        });
+        songPlay.addEventListener('click', () => {
+            if (songPlaying) { pauseSong(); syncSpectrumUI(); audioStatus.textContent = 'Song paused.'; }
+            else playSong();
+        });
+        songSeek.addEventListener('input', () => {
+            const resume = songPlaying, offset = +songSeek.value;
+            pauseSong(); songOffset = Math.min(songBuffer ? songBuffer.duration : 0, offset); updatePlaybackUI();
+            if (resume) playSong();
+        });
+        songVolume.addEventListener('input', () => { if (masterGain) masterGain.gain.setTargetAtTime(+songVolume.value, audioCtx.currentTime, .015); });
+        document.getElementById('song-file').addEventListener('change', async event => {
+            const file = event.target.files[0]; if (!file) return;
+            const generation = ++fileGeneration;
+            cancelSeparation(); stopMicrophone(); pauseSong(); songBuffer = null; stemBuffers = []; songOffset = 0;
+            document.getElementById('stems-option').disabled = true;
+            if (audioAnalysis.value === 'stems') audioAnalysis.value = 'layers';
+            songPlay.disabled = true; songSeek.disabled = true; separateButton.disabled = true;
+            document.getElementById('song-name').textContent = file.name;
+            audioStatus.textContent = 'Decoding song…'; syncAnalysisUI();
+            try {
+                if (file.size > 128 * 1024 * 1024) throw Error('Choose a file smaller than 128 MB.');
+                await ensureAudioContext();
+                const decoded = await audioCtx.decodeAudioData(await file.arrayBuffer());
+                if (generation !== fileGeneration) return;
+                if (decoded.duration > 600) throw Error('Choose a song up to 10 minutes long.');
+                songBuffer = decoded; songSeek.max = decoded.duration; songSeek.value = 0;
+                songPlay.disabled = false; songSeek.disabled = false; separateButton.disabled = false;
+                if (modeSel.value !== 'edges' && modeSel.value !== 'cartoon') modeSel.value = 'spectrum'; clearPreset(); syncAnalysisUI(); updatePlaybackUI();
+                audioStatus.textContent = 'Ready. Play immediately, or separate AI stems first.';
+            } catch (error) { if (generation === fileGeneration) audioStatus.textContent = 'Could not load song: ' + error.message; }
+        });
+        function songWav(buffer) {
+            const channels = Math.min(2, buffer.numberOfChannels), samples = buffer.length;
+            const bytes = new ArrayBuffer(44 + samples * channels * 2), view = new DataView(bytes);
+            const text = (at, value) => { for (let i = 0; i < value.length; i++) view.setUint8(at + i, value.charCodeAt(i)); };
+            text(0, 'RIFF'); view.setUint32(4, bytes.byteLength - 8, true); text(8, 'WAVE'); text(12, 'fmt ');
+            view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, channels, true);
+            view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * channels * 2, true);
+            view.setUint16(32, channels * 2, true); view.setUint16(34, 16, true); text(36, 'data'); view.setUint32(40, bytes.byteLength - 44, true);
+            const data = Array.from({length: channels}, (_, c) => buffer.getChannelData(c));
+            for (let i = 0, at = 44; i < samples; i++) for (let c = 0; c < channels; c++, at += 2) {
+                const sample = Math.max(-1, Math.min(1, data[c][i])); view.setInt16(at, sample * (sample < 0 ? 32768 : 32767), true);
+            }
+            return bytes;
+        }
+        async function helperRequest(path, options = {}) {
+            const response = await fetch(path, {...options, headers: {...options.headers, 'X-Pattern-Token': apiToken || ''}});
+            const body = await response.json(); if (!response.ok) throw Error(body.error || 'Local helper request failed.');
+            return body;
+        }
+        function cancelSeparation() {
+            separationGeneration++; separationPending = false;
+            if (separationJob) helperRequest('/api/jobs/' + separationJob, {method: 'DELETE'}).catch(() => {});
+            separationJob = null; document.getElementById('cancel-separation').classList.add('hidden');
+            separateButton.disabled = !songBuffer; separationStatus.textContent = '';
+        }
+        document.getElementById('cancel-separation').addEventListener('click', () => { cancelSeparation(); separationStatus.textContent = 'Separation cancelled. Song playback is still available.'; });
+        separateButton.addEventListener('click', async () => {
+            if (!songBuffer || separationPending) return;
+            if (!['127.0.0.1', 'localhost'].includes(location.hostname) || !location.protocol.startsWith('http')) {
+                separationStatus.textContent = 'Start the local helper, then open http://127.0.0.1:8765 and choose the song there. See Setup instructions above.'; return;
+            }
+            const generation = ++separationGeneration;
+            separationPending = true; separateButton.disabled = true;
+            document.getElementById('cancel-separation').classList.remove('hidden');
+            separationStatus.textContent = 'Connecting to local stem separator…';
+            try {
+                const health = await helperRequest('/api/status'); apiToken = health.token;
+                if (generation !== separationGeneration) return;
+                if (!health.ready) throw Error('Install the local AI dependencies using kmeans_audio/start.sh --setup, then restart the helper.');
+                const job = await helperRequest('/api/jobs', {method: 'POST', headers: {'Content-Type': 'audio/wav'}, body: songWav(songBuffer)});
+                if (generation !== separationGeneration) { helperRequest('/api/jobs/' + job.id, {method: 'DELETE'}).catch(() => {}); return; }
+                separationJob = job.id;
+                for (;;) {
+                    if (generation !== separationGeneration) return;
+                    const status = await helperRequest('/api/jobs/' + job.id);
+                    if (generation !== separationGeneration) return;
+                    separationStatus.textContent = status.message;
+                    if (status.status === 'failed' || status.status === 'cancelled') throw Error(status.message);
+                    if (status.status === 'complete') {
+                        const decoded = [];
+                        for (const name of ['vocals', 'drums', 'bass', 'other']) {
+                            if (generation !== separationGeneration) return;
+                            const response = await fetch(`/api/jobs/${job.id}/${name}.wav`, {headers: {'X-Pattern-Token': apiToken}});
+                            if (!response.ok) throw Error('Could not load the separated tracks.');
+                            decoded.push(await audioCtx.decodeAudioData(await response.arrayBuffer()));
+                        }
+                        if (generation !== separationGeneration) return;
+                        const resume = songPlaying; pauseSong(); stemBuffers = decoded;
+                        document.getElementById('stems-option').disabled = audioInput.value !== 'file';
+                        document.getElementById('stems-option').textContent = 'AI stems · vocals / drums / bass / other';
+                        if (audioInput.value === 'file') audioAnalysis.value = 'stems';
+                        syncAnalysisUI();
+                        separationStatus.textContent = 'Four AI stems ready. Press Play song to hear the mix with separate stem effects.';
+                        if (resume) await playSong();
+                        break;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } catch (error) { if (generation === separationGeneration) separationStatus.textContent = 'Separation unavailable: ' + error.message + ' You can still play with frequency bands or approximate layers.'; }
+            finally {
+                if (generation === separationGeneration) {
+                    separationJob = null; separationPending = false; separateButton.disabled = !songBuffer;
+                    document.getElementById('cancel-separation').classList.add('hidden');
+                }
+            }
+        });
+        window.addEventListener('pagehide', () => { stopMicrophone(); pauseSong(); if (audioCtx) audioCtx.close(); });
+        micBtn.addEventListener('click', () => { micOn ? stopMic() : startMic(); });
+
+        function buildWarp() {
+            if (!audioActive() || !analyser) { buildWarpRipple(); return; }
+            analyser.getFloatTimeDomainData(wave);
+            let start = 0;
+            for (let i = 1; i < wave.length - WIN; i++) {
+                if (wave[i - 1] < 0 && wave[i] >= 0) { start = i; break; }
+            }
+            const shape = i => Math.tanh(wave[start + i] * sndGain) * vibAmp;
+            for (let y = 0; y < OUT_H; y++) warpX[y] = shape(Math.floor((y / OUT_H) * (WIN - 1)));
+            for (let x = 0; x < OUT_W; x++) warpY[x] = shape(Math.floor((1 - x / OUT_W) * (WIN - 1)));
+            scopeCtx.clearRect(0, 0, scope.width, scope.height);
+            scopeCtx.strokeStyle = '#58a6ff';
+            scopeCtx.beginPath();
+            for (let x = 0; x < scope.width; x++) {
+                const v = Math.tanh(wave[start + Math.floor((x / scope.width) * (WIN - 1))] * sndGain);
+                const yy = scope.height / 2 - v * (scope.height / 2 - 3);
+                x === 0 ? scopeCtx.moveTo(x, yy) : scopeCtx.lineTo(x, yy);
+            }
+            scopeCtx.stroke();
+        }
+
+        function buildWarpRipple() {
+            for (let y = 0; y < OUT_H; y++)
+                warpX[y] = vibAmp * (Math.sin(vibPhase + y * 0.09) + 0.5 * Math.sin(1.7 * vibPhase + y * 0.23));
+            for (let x = 0; x < OUT_W; x++)
+                warpY[x] = vibAmp * (Math.sin(1.13 * vibPhase + x * 0.11 + 1.7) + 0.5 * Math.sin(1.9 * vibPhase + x * 0.27));
+        }
+
+        function regionAt(x, y) {
+            let sx = Math.floor((x + warpX[y]) / SCALE), sy = Math.floor((y + warpY[x]) / SCALE);
+            sx = sx < 0 ? 0 : sx >= PW ? PW - 1 : sx;
+            sy = sy < 0 ? 0 : sy >= PH ? PH - 1 : sy;
+            return sy * PW + sx;
+        }
+
+        let videoTrack = null, cameraOn = false, lightStatus = false, mirrorCamera = true;
+        let facingPref = 'environment';   // 'user' = front, 'environment' = rear
+        let lastTime = 0, frameCount = 0, lastFrameTs = 0, lastSwatch = 0;
+        let K = parseInt(kSlider.value);
+        let globalSpeed = parseFloat(speedSlider.value);
+        let centroids = [], angleVec = [];
+        const motionState = Array.from({ length: MAX_K }, () => ({ spin: 0, dist: 0, tw: 0, morph: 0 }));
+        let lastAssign = null;
+        let lastLuminance = null, edgeMapDirty = true;
+        let edgeMap = new Float32Array(PW * PH);
+        const edgeDetail = document.getElementById('edge-detail');
+        edgeDetail.addEventListener('input', () => {
+            document.getElementById('edge-detail-val').textContent = edgeDetail.value;
+            edgeMapDirty = true;
+        });
+        let loopStarted = false;
+
+        function clearPreset() { document.querySelectorAll('[data-preset]').forEach(b => b.setAttribute('aria-pressed', 'false')); }
+
+        // ---------- per-region UI ----------
+        function buildRegionPanel() {
+            rowsEl.innerHTML = '';
+            for (let i = 0; i < K; i++) {
+                const cfg = regionCfg[i];
+                const row = document.createElement('div');
+                row.className = 'region-row';
+
+                const sw = document.createElement('div');
+                sw.className = 'swatch'; sw.id = 'sw' + i; sw.title = 'Region ' + (i + 1);
+
+                if (modeSel.value === 'cartoon') {
+                    const label = document.createElement('span'); label.textContent = 'Region ' + (i + 1);
+                    row.append(sw, label); rowsEl.appendChild(row); continue;
+                }
+                if (spectrumEnabled()) {
+                    const [low, high] = bandLimits(i, K, audioCtx ? audioCtx.sampleRate : 48000);
+                    const info = document.createElement('div'); info.className = 'band-info';
+                    info.innerHTML = `<div class="band-heading"><span>Region ${i + 1} · ${analysisMode() === 'bands' ? Math.round(low) + '–' + Math.round(high) + ' Hz' : (analysisMode() === 'stems' ? stemNames : layerNames)[i % 4]}</span><span>${((i + 1) * .12).toFixed(2)} rad/s × slider</span></div><span id="band-reading-${i}" class="band-reading">Waiting for audio</span><div class="band-meter"><div class="band-fill" id="band-fill-${i}"></div></div>`;
+                    row.append(sw, info); rowsEl.appendChild(row); continue;
+                }
+                if (modeSel.value === 'pointillism') {
+                    if (i === 0) {
+                        const info = document.createElement('div');
+                        info.className = 'band-info';
+                        info.innerHTML = `<div class="band-heading"><span>Scene stippling · ${K} regions</span></div><span class="band-reading">Dots follow region darkness. The brightest ${Math.max(1, Math.round(K * 0.2))} regions are outlined with black dots instead of left blank.</span>`;
+                        row.append(sw, info);
+                        rowsEl.appendChild(row);
+                    }
+                    continue;
+                }
+                const pSel = document.createElement('select');
+                PATTERNS.forEach((p, idx) => pSel.add(new Option(p.label, idx)));
+                pSel.setAttribute('aria-label', `Region ${i + 1} pattern`);
+                pSel.value = cfg.pattern;
+                pSel.onchange = () => { cfg.pattern = parseInt(pSel.value); clearPreset(); };
+
+                const mSel = document.createElement('select');
+                MOTIONS.forEach((m, idx) => mSel.add(new Option(m[0].toUpperCase() + m.slice(1), idx)));
+                mSel.setAttribute('aria-label', `Region ${i + 1} motion`);
+                mSel.value = cfg.motion;
+                mSel.onchange = () => { cfg.motion = parseInt(mSel.value); };
+
+                const spd = document.createElement('input');
+                spd.setAttribute('aria-label', `Region ${i + 1} speed`);
+                spd.type = 'range'; spd.min = -3; spd.max = 3; spd.step = 0.1; spd.value = cfg.speed;
+                const sv = document.createElement('span');
+                sv.className = 'speed-val'; sv.textContent = cfg.speed.toFixed(1);
+                spd.oninput = () => { cfg.speed = parseFloat(spd.value); sv.textContent = cfg.speed.toFixed(1); };
+
+                row.append(sw, pSel, mSel, spd, sv);
+                rowsEl.appendChild(row);
+            }
+            updateSwatches();
+        }
+
+        function updateSwatches() {
+            for (let i = 0; i < K; i++) {
+                const el = document.getElementById('sw' + i), c = centroids[i];
+                if (el && c) el.style.background = `rgb(${c.r | 0},${c.g | 0},${c.b | 0})`;
+            }
+        }
+
+        document.getElementById('randomize').onclick = () => {
+            clearPreset();
+            regionCfg.forEach(cfg => {
+                cfg.pattern = Math.floor(Math.random() * PATTERNS.length);
+                cfg.motion = 1 + Math.floor(Math.random() * 3);
+                cfg.speed = Math.round((Math.random() * 4 - 2) * 10) / 10;
+            });
+            buildRegionPanel();
+        };
+
+        kSlider.addEventListener('input', (e) => {
+            K = parseInt(e.target.value);
+            kVal.textContent = K;
+            centroids = []; angleVec = []; lastAssign = null;
+            if (demoMode) makeDemo();
+            buildRegionPanel();
+        });
+        speedSlider.addEventListener('input', (e) => {
+            globalSpeed = parseFloat(e.target.value);
+            speedVal.textContent = globalSpeed.toFixed(1);
+        });
+
+        // ---------- camera ----------
+        function embeddedInFrame() {
+            try { return window.self !== window.top; } catch (error) { return true; }
+        }
+        // iPhone Safari blocks camera and microphone in cross-origin preview iframes (CodePen,
+        // embedded previews) and reports it as a generic permission error, so explain the cause.
+        function cameraFailureReason(err) {
+            const name = err && err.name;
+            if ((name === 'NotAllowedError' || name === 'SecurityError') && embeddedInFrame()) {
+                return 'camera access is blocked in this embedded preview. On iPhone, open the page directly in Safari (a hosted URL, not CodePen\u2019s iframe).';
+            }
+            if (name === 'NotAllowedError' || name === 'SecurityError') {
+                return 'camera permission denied. Allow camera access for Safari in Settings, then tap Turn Camera On.';
+            }
+            if (name === 'NotReadableError' || name === 'TrackStartError') {
+                return 'the camera is busy in another app. Close it and tap Turn Camera On.';
+            }
+            if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+                return 'no usable camera was found on this device.';
+            }
+            return 'camera unavailable. Allow camera access and retry using Turn Camera On.';
+        }
+        async function startCamera() {
+            try {
+                camToggle.disabled = true;
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera API unavailable (needs HTTPS and a supporting browser).');
+                // Forward-facing (selfie) camera first; fall back gracefully if it can't be satisfied.
+                const attempts = [
+                    { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingPref } },
+                    { facingMode: { ideal: facingPref } },
+                    true
+                ];
+                let stream = null, lastErr = null;
+                for (const v of attempts) {
+                    try { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: v }); break; }
+                    catch (e) { lastErr = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) break; }
+                }
+                if (!stream) throw lastErr || new Error('No camera available');
+                video.muted = true; video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
+                video.srcObject = stream;
+                videoTrack = stream.getVideoTracks()[0];
+                const facing = (videoTrack.getSettings && videoTrack.getSettings().facingMode) || facingPref;
+                mirrorCamera = facing !== 'environment';
+                cameraOn = true; demoMode = false;
+                document.getElementById('source-note').textContent = 'Live camera · turn it off to hold this scene.';
+                kSlider.disabled = false;
+                camToggle.textContent = "Turn Camera Off";
+                camToggle.className = "";
+                setupTorchButton();
+                video.onloadedmetadata = () => { const p = video.play(); if (p && p.catch) p.catch(() => {}); errorOverlay.classList.add('hidden'); };
+                const p0 = video.play(); if (p0 && p0.catch) p0.catch(() => {});
+                if (!loopStarted) { loopStarted = true; requestAnimationFrame(renderLoop); }
+            } catch (err) {
+                console.error(err);
+                makeDemo();
+                document.getElementById('source-note').textContent = 'Demo scene · ' + cameraFailureReason(err);
+                camToggle.textContent = "Turn Camera On";
+                camToggle.className = "cam-off";
+            } finally {
+                camToggle.disabled = false;
+            }
+        }
+
+        function stopCamera() {
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            video.srcObject = null; videoTrack = null;
+            cameraOn = false; lightStatus = false;
+            document.getElementById('source-note').textContent = 'Scene held · patterns keep moving.';
+            lightToggle.className = ''; lightToggle.disabled = true;
+            lightToggle.textContent = "Camera light (camera off)";
+            kSlider.disabled = true;
+            camToggle.textContent = "Turn Camera On";
+            camToggle.className = "cam-off";
+            if (!lastAssign) {
+                errorOverlay.classList.remove('hidden');
+                errorOverlay.innerHTML = `<p style="color:#8b949e">Camera is off. Turn it on to capture a scene.</p>`;
+            }
+        }
+        camToggle.addEventListener('click', () => { cameraOn ? stopCamera() : startCamera(); });
+
+        const flipBtn = document.getElementById('flip-camera');
+        flipBtn.addEventListener('click', async () => {
+            facingPref = facingPref === 'user' ? 'environment' : 'user';
+            flipBtn.textContent = facingPref === 'user' ? 'Use rear camera' : 'Use front camera';
+            if (cameraOn) stopCamera();   // release the current camera before opening the other
+            await startCamera();
+        });
+
+        function setupTorchButton() {
+            const caps = (videoTrack && videoTrack.getCapabilities) ? videoTrack.getCapabilities() : {};
+            if (caps.torch) {
+                lightToggle.disabled = false;
+                lightToggle.textContent = "Toggle Camera Light";
+                lightToggle.title = "";
+            } else {
+                lightToggle.disabled = true;
+                lightToggle.textContent = "Camera light not supported";
+                lightToggle.title = "This camera/browser doesn't expose a torch. Chrome on Android with a rear camera usually does.";
+            }
+        }
+        lightToggle.addEventListener('click', async () => {
+            if (!videoTrack || lightToggle.disabled) return;
+            try {
+                lightStatus = !lightStatus;
+                await videoTrack.applyConstraints({ advanced: [{ torch: lightStatus }] });
+                lightToggle.className = lightStatus ? 'active-light' : '';
+            } catch (err) { lightStatus = false; console.error("Torch failed: ", err); }
+        });
+
+        function makeDemo() {
+            demoMode = true;
+            const palette = [[180, 216, 137], [114, 163, 195], [219, 161, 202], [245, 214, 151], [108, 194, 174]];
+            const hsl = (h, sat, l) => { const a = sat * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))); }; return [f(0), f(8), f(4)]; };
+            centroids = Array.from({length: K}, (_, i) => { const c = i < palette.length ? palette[i] : hsl((i * 137.5) % 360, .55, .45 + .25 * ((i * 7) % 5) / 4); return {r:c[0], g:c[1], b:c[2]}; });
+            lastAssign = new Uint8Array(PW * PH);
+            for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+                const ridge = y / PH + .16 * Math.sin(x / PW * 7) + .08 * Math.cos(x / PW * 12 + y / PH * 4);
+                lastAssign[y * PW + x] = Math.max(0, Math.min(K - 1, Math.floor(ridge * K)));
+            }
+            lastLuminance = Float32Array.from(lastAssign, region => {
+                const c = centroids[region]; return (.299*c.r + .587*c.g + .114*c.b) / 255;
+            });
+            edgeMapDirty = true;
+            errorOverlay.classList.add('hidden');
+            if (!loopStarted) { loopStarted = true; requestAnimationFrame(renderLoop); }
+        }
+
+        // Outside renderLoop, declared only once
+// let lastWSJRender = -Infinity;
+// const WSJ_RENDER_INTERVAL = 500;
+
+
+
+        // ---------- main loop ----------
+     
+/*
+ * Declare these ONCE, outside renderLoop().
+ * If already declared, do not duplicate them.
+ */
+let lastWSJRender = -Infinity;
+let lastWSJCameraUpdate = -Infinity;
+const WSJ_RENDER_INTERVAL = 500;
+let wsjSourceImageData = null;
+let lastFieldRender = -Infinity;
+let lastFieldSource = null;
+const FIELD_INTERVAL = matchMedia("(max-width: 700px)").matches ? 120 : 67; // target ~15 updates/sec; GPU workload is bounded below
+
+
+// ---------- night vision (software) ----------
+const nv = { on: false, boost: 0.6, smooth: 0.5, green: false, acc: null, gain: 1 };
+const nvToggle = document.getElementById('nv-toggle');
+const nvPanel = document.getElementById('nv-controls');
+nvToggle.addEventListener('click', () => {
+    nv.on = !nv.on; nv.acc = null;
+    nvToggle.textContent = 'Night Vision: ' + (nv.on ? 'On' : 'Off');
+    nvToggle.setAttribute('aria-pressed', String(nv.on));
+    nvPanel.classList.toggle('hidden', !nv.on);
+    if (typeof cartoonSource !== 'undefined') cartoonSource = null;
+});
+document.getElementById('nv-boost').addEventListener('input', e => {
+    nv.boost = e.target.value / 100;
+    document.getElementById('nv-boost-val').textContent = e.target.value;
+});
+document.getElementById('nv-smooth').addEventListener('input', e => {
+    nv.smooth = e.target.value / 100;
+    document.getElementById('nv-smooth-val').textContent = e.target.value;
+});
+document.getElementById('nv-green').addEventListener('change', e => { nv.green = e.target.checked; });
+
+function nvApply(img) {
+    const d = img.data, n = d.length;
+    if (!nv.acc || nv.acc.length !== n) { nv.acc = new Float32Array(n); for (let i = 0; i < n; i++) nv.acc[i] = d[i]; }
+    // 1. temporal averaging: cuts sensor noise (exponential moving average)
+    const a = nv.acc, keep = nv.smooth, fresh = 1 - keep;
+    let sum = 0;
+    for (let i = 0; i < n; i += 4) {
+        a[i] = a[i]*keep + d[i]*fresh; a[i+1] = a[i+1]*keep + d[i+1]*fresh; a[i+2] = a[i+2]*keep + d[i+2]*fresh;
+        sum += .299*a[i] + .587*a[i+1] + .114*a[i+2];
+    }
+    // 2. auto-gain: aim for a mid-gray average, scaled by the boost slider
+    const mean = Math.max(4, sum / (n / 4));
+    const target = 55 + 70 * nv.boost;
+    const wantGain = Math.min(1 + 7 * nv.boost, Math.max(1, target / mean));
+    nv.gain += (wantGain - nv.gain) * 0.08;          // ease so exposure doesn't pump
+    // 3. gamma lift + gain via lookup table
+    const gamma = 1 - 0.55 * nv.boost, g = nv.gain;
+    const lut = new Uint8ClampedArray(256);
+    for (let v = 0; v < 256; v++) lut[v] = 255 * Math.pow(Math.min(1, v * g / 255), gamma);
+    for (let i = 0; i < n; i += 4) {
+        const r = lut[a[i] | 0], gr = lut[a[i+1] | 0], b = lut[a[i+2] | 0];
+        if (nv.green) {
+            const l = .299*r + .587*gr + .114*b;
+            d[i] = l * 0.25; d[i+1] = l; d[i+2] = l * 0.35;
+        } else { d[i] = r; d[i+1] = gr; d[i+2] = b; }
+        d[i+3] = 255;
+    }
+}
+
+// ---------- main loop ----------
+function renderLoop(now) {
+    if (songPlaying) updatePlaybackUI();
+    const dt = lastFrameTs ? Math.min(0.1, (now - lastFrameTs) / 1000) : 0;
+    lastFrameTs = now;
+
+    const mode = modeSel.value;
+    const wsjMode = mode === 'pointillism' && pointStatic;
+    const fieldMode = mode === 'vectorfield' || mode === 'contourflow';
+    const interval = wsjMode ? WSJ_RENDER_INTERVAL : fieldMode ? FIELD_INTERVAL : 0;
+    const cameraReady = cameraOn && !video.paused && !video.ended && video.readyState >= 2;
+    let processedFrame = false;
+
+    if (cameraReady && (!interval || now - lastWSJCameraUpdate >= interval)) {
+        const vw = video.videoWidth || 4, vh = video.videoHeight || 3;
+        const want = PW / PH;
+        let cx = 0, cy = 0, cw = vw, ch = vh;
+        if (vw / vh > want) { cw = vh * want; cx = (vw - cw) / 2; }
+        else { ch = vw / want; cy = (vh - ch) / 2; }
+        if (mirrorCamera) { procCtx.save(); procCtx.translate(PW, 0); procCtx.scale(-1, 1); }
+        procCtx.drawImage(video, cx, cy, cw, ch, 0, 0, PW, PH);
+        if (mirrorCamera) procCtx.restore();
+        const imageData = procCtx.getImageData(0, 0, PW, PH);
+        if (nv.on) nvApply(imageData);
+        const data = imageData.data;
+        wsjSourceImageData = imageData;
+        if (fieldMode) {
+            lastFieldSource = imageData;
+            if (!gpuFields.draw(imageData, mode)) imageVectorField = buildImageVectorField(imageData);
+            else imageVectorField = null;
+        }
+        if (!fieldMode) {
+            const lum = computeLuminance(data);
+            lastLuminance = lum;
+            edgeMapDirty = true;
+            lastAssign = runKMeans(data, K);
+            updateOrientations(lum, lastAssign);
+        }
+        processedFrame = true;
+        if (interval) lastWSJCameraUpdate = now;
+    }
+
+    if (lastAssign || (fieldMode && (imageVectorField || gpuFields.enabled))) {
+        if (!fieldMode && !wsjMode) {
+            for (let c = 0; c < K; c++) {
+                const cfg = regionCfg[c], st = motionState[c];
+                const s = cfg.speed * globalSpeed * (paused ? 0 : dt);
+                const m = MOTIONS[cfg.motion];
+                if (m === 'spin') st.spin += s * 0.5;
+                else if (m === 'drift') st.dist = (st.dist + s * 20) % 10000;
+                else if (m === 'twirl') st.tw += s;
+                if (m !== 'still') st.morph += s;
+            }
+            vibPhase += 2 * Math.PI * vibFreq * (paused ? 0 : dt);
+            if (spectrumEnabled()) {
+                if (!paused) {
+                    updateSpectrum(dt, now);
+                    if (audioActive()) buildWarp();
+                }
+                if (audioLinesOnly.checked) { warpX.fill(0); warpY.fill(0); }
+            } else if (!paused) buildWarp();
+        }
+
+        const patternBranch = !fieldMode && mode !== 'cartoon' && mode !== 'pointillism' && mode !== 'edges'
+            && !(mode === 'flat' && !spectrumEnabled());
+        if (!patternBranch && !fieldMode) gpuPatterns.show(false);
+
+        if (fieldMode) {
+            // Reuse the last GPU image between camera updates; do not re-run all shader passes.
+            if (imageVectorField && (processedFrame || now - lastFieldRender >= FIELD_INTERVAL)) {
+                lastFieldRender = now;
+                if (mode === 'vectorfield') renderVectorField();
+                else renderContourFlow();
+            }
+        } else if (mode === 'cartoon') {
+            renderCartoon(lastAssign);
+        } else if (mode === 'pointillism') {
+            if (pointStatic) {
+                if (now - lastWSJRender >= WSJ_RENDER_INTERVAL) {
+                    lastWSJRender = now;
+                    renderPointillismStatic();
+                }
+            } else renderPointillism(lastAssign);
+        } else if (mode === 'edges') {
+            renderImageEdges(lastAssign);
+        } else if (mode === 'flat' && !spectrumEnabled()) {
+            drawFlat(lastAssign);
+        } else {
+            renderPatterns(lastAssign, mode === 'paper');
+        }
+
+        if (now - lastSwatch > 500) { updateSwatches(); lastSwatch = now; }
+        calculateMetrics(now);
+    }
+    requestAnimationFrame(renderLoop);
+}
+
+
+        const cartoonInk = document.getElementById('cartoon-ink');
+        const cartoonDetail = document.getElementById('cartoon-detail');
+        for (const control of [cartoonInk, cartoonDetail]) control.addEventListener('input', () => {
+            document.getElementById(control.id + '-val').textContent = control.value;
+            cartoonSource = null;
+        });
+        let cartoonCanvas = document.createElement('canvas');
+        cartoonCanvas.width = PW; cartoonCanvas.height = PH;
+        let cartoonCtx = cartoonCanvas.getContext('2d');
+        let cartoonImage = cartoonCtx.createImageData(PW, PH);
+        let cartoonLabels = new Uint8Array(PW * PH);
+        let cartoonEdges = new Float32Array(PW * PH);
+        let cartoonSource = null;
+
+        function renderCartoon(assignments) {
+            if (cartoonSource !== assignments) {
+                const votes = new Uint8Array(K);
+                for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+                    const i = y * PW + x;
+                    votes.fill(0);
+                    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                        const xx = Math.max(0, Math.min(PW - 1, x + dx));
+                        const yy = Math.max(0, Math.min(PH - 1, y + dy));
+                        votes[assignments[yy * PW + xx]]++;
+                    }
+                    let best = assignments[i];
+                    for (let c = 0; c < K; c++) if (votes[c] > votes[best]) best = c;
+                    cartoonLabels[i] = best;
+                }
+                detectImageEdges(lastLuminance, .025 + (1 - Number(cartoonDetail.value) / 100) * .20, cartoonEdges);
+                const ink = Number(cartoonInk.value) / 100;
+                const palette = centroids.map(c => {
+                    const l = .299*c.r + .587*c.g + .114*c.b;
+                    return [c.r, c.g, c.b].map(v => Math.max(0, Math.min(255, (l + (v-l)*1.18 - 128)*1.08 + 128)));
+                });
+                const d = cartoonImage.data;
+                for (let i = 0; i < assignments.length; i++) {
+                    const c = palette[cartoonLabels[i]];
+                    const base = centroids[cartoonLabels[i]];
+                    const lum = (.299*base.r + .587*base.g + .114*base.b) / 255;
+                    const delta = lastLuminance ? lastLuminance[i] - lum : 0;
+                    const shade = delta < -.10 ? .84 : delta > .12 ? 1.08 : 1;
+                    const alpha = cartoonEdges[i] * ink;
+                    for (let channel = 0; channel < 3; channel++)
+                        d[i*4+channel] = c[channel]*shade*(1-alpha) + [22, 20, 29][channel]*alpha;
+                    d[i*4+3] = 255;
+                }
+                cartoonCtx.putImageData(cartoonImage, 0, 0);
+                cartoonSource = assignments;
+            }
+            outCtx.imageSmoothingEnabled = true;
+            outCtx.imageSmoothingQuality = 'high';
+            outCtx.drawImage(cartoonCanvas, 0, 0, OUT_W, OUT_H);
+        }
+
+        // ---------- WSJ-style stippling driven by K-means regions ----------
+        const pointSizeEl = document.getElementById('point-size');
+        const pointDensityEl = document.getElementById('point-density');
+        const pointContrastEl = document.getElementById('point-contrast');
+        const pointMotionEl = document.getElementById('point-motion');
+        const pointJitterEl = document.getElementById('point-jitter');
+        const pointColorEl = document.getElementById('point-color');
+        let pointSize = 0.55, pointDensity = 1, pointContrast = 1, pointMotion = 1.2, pointJitter = true, pointColor = false;
+        pointSizeEl.addEventListener('input', () => {
+            pointSize = +pointSizeEl.value;
+            document.getElementById('point-size-val').textContent = pointSize.toFixed(2);
+        });
+        pointDensityEl.addEventListener('input', () => {
+            pointDensity = +pointDensityEl.value;
+            document.getElementById('point-density-val').textContent = pointDensity.toFixed(2);
+        });
+        pointContrastEl.addEventListener('input', () => {
+            pointContrast = +pointContrastEl.value;
+            document.getElementById('point-contrast-val').textContent = pointContrast.toFixed(2);
+        });
+        pointMotionEl.addEventListener('input', () => {
+            pointMotion = +pointMotionEl.value;
+            document.getElementById('point-motion-val').textContent = pointMotion.toFixed(2);
+        });
+        pointJitterEl.addEventListener('change', () => { pointJitter = pointJitterEl.checked; });
+        pointColorEl.addEventListener('change', () => { pointColor = pointColorEl.checked; });
+
+        function sampleLum(sx, sy) {
+            if (!lastLuminance) return 0.5;
+            const x = Math.max(0, Math.min(PW - 1.001, sx));
+            const y = Math.max(0, Math.min(PH - 1.001, sy));
+            const x0 = Math.floor(x), y0 = Math.floor(y);
+            const x1 = Math.min(PW - 1, x0 + 1), y1 = Math.min(PH - 1, y0 + 1);
+            const fx = x - x0, fy = y - y0;
+            const a = lastLuminance[y0 * PW + x0], b = lastLuminance[y0 * PW + x1];
+            const c = lastLuminance[y1 * PW + x0], d = lastLuminance[y1 * PW + x1];
+            return a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + c * (1 - fx) * fy + d * fx * fy;
+        }
+
+        function stippleHash(ix, iy, salt) {
+            let h = Math.imul(ix + salt * 19, 73856093) ^ Math.imul(iy + salt * 7, 19349663);
+            h ^= h >>> 13; h = Math.imul(h, 1274126177); h ^= h >>> 16;
+            return (h >>> 0) / 4294967296;
+        }
+
+        let stipplePhase = 0;
+
+        // Per-region brightness lookup, computed once per frame.
+        function buildRegionShades() {
+            const shades = new Array(K);
+            for (let c = 0; c < K; c++) {
+                const col = centroids[c];
+                const lum = col ? (0.299 * col.r + 0.587 * col.g + 0.114 * col.b) / 255 : 0.5;
+                const adjusted = Math.max(0, Math.min(1, 0.5 + (lum - 0.5) * pointContrast));
+                shades[c] = { darkness: Math.pow(1 - adjusted, 1.08), lum: adjusted };
+            }
+            const order = shades.map((s, i) => i).sort((a, b) => shades[b].lum - shades[a].lum);
+            const brightCount = Math.max(1, Math.round(K * 0.2));
+            for (let i = 0; i < brightCount; i++) shades[order[i]].isBright = true;
+            return shades;
+        }
+
+        // True when the region at (px,py) differs from at least one 4-neighbour — i.e. this
+        // analysis pixel sits on a region boundary. Used to outline bright regions with dots.
+        function isRegionBorder(px, py, assignments) {
+            const here = assignments[py * PW + px];
+            if (px > 0 && assignments[py * PW + px - 1] !== here) return true;
+            if (px < PW - 1 && assignments[py * PW + px + 1] !== here) return true;
+            if (py > 0 && assignments[(py - 1) * PW + px] !== here) return true;
+            if (py < PH - 1 && assignments[(py + 1) * PW + px] !== here) return true;
+            return false;
+        }
+
+function renderPointillism() {
+    const paper = [244, 242, 236];
+    const ink = [18, 18, 22];
+
+    const cell = Math.max(2.4, 8.5 / pointDensity * patternScale);
+    const maxR = Math.max(0.6, cell * 0.52 * pointSize);
+
+    const speed = paused ? 0 : (globalSpeed * 0.25 + pointMotion * 0.85);
+    stipplePhase += speed * 0.55;
+
+    const out = patternImg.data;
+    for (let i = 0; i < out.length; i += 4) {
+        out[i] = paper[0]; out[i + 1] = paper[1]; out[i + 2] = paper[2]; out[i + 3] = 255;
+    }
+
+    const shades = lastAssign ? buildRegionShades() : null;
+
+    // Sample the region at an analysis-space pixel (nearest neighbour; cheap and
+    // fine because assignments are already blocky).
+    const regionAtPx = (sx, sy) => {
+        const ax = Math.min(PW - 1, Math.max(0, Math.floor(sx)));
+        const ay = Math.min(PH - 1, Math.max(0, Math.floor(sy)));
+        return lastAssign[ay * PW + ax];
+    };
+
+    const cols = Math.ceil(OUT_W / cell) + 4;
+    const rows = Math.ceil(OUT_H / cell) + 4;
+    for (let jy = -3; jy < rows; jy++) {
+        for (let jx = -3; jx < cols; jx++) {
+            const u1 = stippleHash(jx, jy, 0);
+            const u2 = stippleHash(jx, jy, 1);
+            const u3 = stippleHash(jx, jy, 2);
+            const u4 = stippleHash(jx, jy, 3);
+
+            const ang = u1 * Math.PI * 2;
+            const spd = 0.35 + u2 * 1.4;
+            const wobble = 0.15 + u3 * 0.35;
+
+            // Base (home) position from the grid cell — this is what determines the
+            // particle's region membership, and it never changes over time.
+            let bx = (jx + 0.5) * cell;
+            let by = (jy + 0.5) * cell;
+            if (pointJitter) {
+                bx += (u1 - 0.5) * cell * 0.7;
+                by += (u2 - 0.5) * cell * 0.7;
+            }
+            bx = ((bx % OUT_W) + OUT_W) % OUT_W;
+            by = ((by % OUT_H) + OUT_H) % OUT_H;
+
+            // Home region: decided once from the base position.
+            let homeRegion = -1, homeShade = null, homeBright = false;
+            if (shades) {
+                homeRegion = regionAtPx(bx / SCALE, by / SCALE);
+                homeShade = shades[homeRegion];
+                homeBright = !!(homeShade && homeShade.isBright);
+            }
+
+            // Bright regions: only dots whose home cell sits on a region boundary draw.
+            // Boundary membership is decided from the home position, so the count is
+            // fixed and does not pulse frame-to-frame.
+            if (homeBright) {
+                const ax = Math.min(PW - 1, Math.max(0, Math.floor(bx / SCALE)));
+                const ay = Math.min(PH - 1, Math.max(0, Math.floor(by / SCALE)));
+                if (!isRegionBorder(ax, ay, lastAssign)) continue;
+            }
+
+            // Wander within the home region: an oscillating offset whose *maximum*
+            // radius is capped at a small fraction of a region cell. Because the
+            // offset is bounded and the motion is periodic, a particle stays near
+            // its home region and density in each region stays constant.
+            const t = stipplePhase * spd;
+            // Local wander radius: about one output pixel per unit of cell — small
+            // enough not to cross typical region boundaries at typical K.
+            const wander = cell * (0.35 + 0.35 * u3);
+            let cx = bx + Math.cos(ang) * Math.sin(t * 0.7) * wander
+                       + Math.sin(t * 1.1 + ang) * wander * wobble;
+            let cy = by + Math.sin(ang) * Math.sin(t * 0.65) * wander
+                       + Math.cos(t * 0.95 + ang * 1.3) * wander * wobble;
+
+            // Reject if the wandered position has crossed into a different region.
+            // (Particles that leave their home region simply don't draw that frame —
+            // they don't hop to another region's particle count.)
+            if (shades) {
+                const here = regionAtPx(cx / SCALE, cy / SCALE);
+                if (here !== homeRegion) continue;
+            }
+
+            // If somehow off-canvas (shouldn't happen for interior cells), skip.
+            if (cx < 0 || cy < 0 || cx >= OUT_W || cy >= OUT_H) continue;
+
+            let darkness, radiusScale;
+            if (homeShade) {
+                if (homeBright) {
+                    darkness = 0.85;
+                    radiusScale = 0.55;
+                } else {
+                    darkness = homeShade.darkness;
+                    const thresh = darkness * Math.min(1.2, 0.5 + 0.6 * pointDensity);
+                    if (u4 > thresh) continue;
+                    radiusScale = 0.25 + 0.75 * darkness;
+                }
+            } else {
+                // Pre-region fallback (first frame).
+                let lum = sampleLum(cx / SCALE, cy / SCALE);
+                lum = Math.max(0, Math.min(1, 0.5 + (lum - 0.5) * pointContrast));
+                darkness = Math.pow(1 - lum, 1.08);
+                const thresh = darkness * Math.min(1.2, 0.5 + 0.6 * pointDensity);
+                if (u4 > thresh) continue;
+                radiusScale = 0.25 + 0.75 * darkness;
+            }
+
+            const r = maxR * radiusScale;
+            if (r < 0.35) continue;
+
+            let cr = ink[0], cg = ink[1], cb = ink[2];
+            if (pointColor && homeRegion >= 0) {
+                const c = centroids[homeRegion];
+                if (c) { cr = c.r * 0.45; cg = c.g * 0.45; cb = c.b * 0.45; }
+            }
+
+            const x0 = Math.max(0, Math.floor(cx - r - 1));
+            const x1 = Math.min(OUT_W - 1, Math.ceil(cx + r + 1));
+            const y0 = Math.max(0, Math.floor(cy - r - 1));
+            const y1 = Math.min(OUT_H - 1, Math.ceil(cy + r + 1));
+            for (let y = y0; y <= y1; y++) {
+                for (let x = x0; x <= x1; x++) {
+                    const d = Math.hypot(x - cx, y - cy) - r;
+                    if (d >= 0.5) continue;
+                    const alpha = d <= -0.5 ? 1 : 0.5 - d;
+                    const o = (y * OUT_W + x) * 4;
+                    out[o]     = paper[0] + (cr - paper[0]) * alpha;
+                    out[o + 1] = paper[1] + (cg - paper[1]) * alpha;
+                    out[o + 2] = paper[2] + (cb - paper[2]) * alpha;
+                }
+            }
+        }
+    }
+    outCtx.putImageData(patternImg, 0, 0);
+}
+
+        function drawFlat(assignments) {
+            const d = patternImg.data;
+            let o = 0;
+            for (let y = 0; y < OUT_H; y++) {
+                for (let x = 0; x < OUT_W; x++) {
+                    const c = centroids[assignments[regionAt(x, y)]];
+                    d[o] = c.r; d[o + 1] = c.g; d[o + 2] = c.b; d[o + 3] = 255;
+                    o += 4;
+                }
+            }
+            outCtx.putImageData(patternImg, 0, 0);
+        }
+
+        function detectImageEdges(luminance, threshold, target = edgeMap) {
+            target.fill(0);
+            if (!luminance) return;
+            const smooth = new Float32Array(PW * PH), magnitude = new Float32Array(PW * PH);
+            const gradientX = new Float32Array(PW * PH), gradientY = new Float32Array(PW * PH);
+            for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+                let sum = 0;
+                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                    const xx = Math.max(0, Math.min(PW - 1, x + dx)), yy = Math.max(0, Math.min(PH - 1, y + dy));
+                    sum += luminance[yy * PW + xx] * (dx === 0 ? 2 : 1) * (dy === 0 ? 2 : 1);
+                }
+                smooth[y * PW + x] = sum / 16;
+            }
+            for (let y = 1; y < PH - 1; y++) for (let x = 1; x < PW - 1; x++) {
+                const i = y * PW + x;
+                const gx = (smooth[i-PW+1] + 2*smooth[i+1] + smooth[i+PW+1] - smooth[i-PW-1] - 2*smooth[i-1] - smooth[i+PW-1]) / 4;
+                const gy = (smooth[i+PW-1] + 2*smooth[i+PW] + smooth[i+PW+1] - smooth[i-PW-1] - 2*smooth[i-PW] - smooth[i-PW+1]) / 4;
+                gradientX[i] = gx; gradientY[i] = gy; magnitude[i] = Math.hypot(gx, gy);
+            }
+            for (let y = 1; y < PH - 1; y++) for (let x = 1; x < PW - 1; x++) {
+                const i = y * PW + x, strength = magnitude[i];
+                if (strength < threshold) continue;
+                const gx = gradientX[i], gy = gradientY[i], ax = Math.abs(gx), ay = Math.abs(gy);
+                const step = ay < ax * .4142 ? 1 : ay > ax * 2.4142 ? PW : (gx * gy >= 0 ? PW + 1 : PW - 1);
+                if (strength >= magnitude[i-step] && strength > magnitude[i+step]) target[i] = 1;
+            }
+        }
+        function edgeSample(x, y) {
+            if (x < 0 || y < 0 || x > PW - 1 || y > PH - 1) return 0;
+            const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+            const nx = Math.min(PW - 1, ix + 1), ny = Math.min(PH - 1, iy + 1);
+            return (edgeMap[iy*PW+ix]*(1-fx) + edgeMap[iy*PW+nx]*fx)*(1-fy)
+                 + (edgeMap[ny*PW+ix]*(1-fx) + edgeMap[ny*PW+nx]*fx)*fy;
+        }
+        function renderImageEdges(assignments) {
+            if (edgeMapDirty) {
+                detectImageEdges(lastLuminance, .02 + (1 - Number(edgeDetail.value) / 100) * .5);
+                edgeMapDirty = false;
+            }
+            const fixedBrightness = constantWaveformBrightness.checked;
+            const regions = centroids.map((color, i) => {
+                const angle = i * Math.PI / K + bands[i].rotation;
+                const max = Math.max(1, color.r, color.g, color.b);
+                return {cos: Math.cos(angle), sin: Math.sin(angle), band: bands[i],
+                    ink: [color.r, color.g, color.b].map(v => 150 + 105*v/max)};
+            });
+            const out = patternImg.data, bg = [13, 17, 23];
+            for (let y = 0, o = 0; y < OUT_H; y++) for (let x = 0; x < OUT_W; x++, o += 4) {
+                const region = assignments[Math.min(PH-1, Math.floor(y/SCALE))*PW + Math.min(PW-1, Math.floor(x/SCALE))];
+                const q = regions[region], b = q.band;
+                const along = -x*q.sin + y*q.cos;
+                const displacement = traceAt(b, along) * b.level * vibAmp;
+                const sx = (x - displacement*q.cos) / SCALE, sy = (y - displacement*q.sin) / SCALE;
+                const visibility = fixedBrightness ? 1 : Math.min(1, b.level*8) * Math.min(1, b.tracePeak*10000);
+                const alpha = edgeSample(sx, sy) * visibility;
+                for (let channel = 0; channel < 3; channel++) out[o+channel] = bg[channel] + (q.ink[channel] - bg[channel])*alpha;
+                out[o+3] = 255;
+            }
+            outCtx.putImageData(patternImg, 0, 0);
+        }
+
+        function computeLuminance(data) {
+            const lum = new Float32Array(PW * PH);
+            for (let p = 0, i = 0; p < lum.length; p++, i += 4)
+                lum[p] = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
+            return lum;
+        }
+
+        function runKMeans(data, k) {
+            const len = data.length, pixelCount = len / 4;
+            if (centroids.length !== k) {
+                centroids = [];
+                for (let i = 0; i < k; i++) {
+                    const t = Math.floor(((i + 0.5) / k) * pixelCount) * 4;
+                    centroids.push({ r: data[t], g: data[t + 1], b: data[t + 2] });
+                }
+            }
+            // Work in flat typed arrays (float64, so results match the original exactly), write back at the end.
+            const cr = new Float64Array(k), cg = new Float64Array(k), cb = new Float64Array(k);
+            const sr = new Float64Array(k), sg = new Float64Array(k), sb = new Float64Array(k), sn = new Uint32Array(k);
+            for (let c = 0; c < k; c++) { cr[c] = centroids[c].r; cg[c] = centroids[c].g; cb[c] = centroids[c].b; }
+            const assignments = new Uint8Array(pixelCount);
+            for (let iter = 0; iter < 3; iter++) {
+                sr.fill(0); sg.fill(0); sb.fill(0); sn.fill(0);
+                for (let i = 0, p = 0; i < len; i += 4, p++) {
+                    const r = data[i], g = data[i + 1], b = data[i + 2];
+                    let minDst = Infinity, best = 0;
+                    for (let c = 0; c < k; c++) {
+                        const dr = r - cr[c], dg = g - cg[c], db = b - cb[c];
+                        const d = dr * dr + dg * dg + db * db;
+                        if (d < minDst) { minDst = d; best = c; }
+                    }
+                    assignments[p] = best;
+                    sr[best] += r; sg[best] += g; sb[best] += b; sn[best]++;
+                }
+                for (let c = 0; c < k; c++) if (sn[c] > 0) { cr[c] = sr[c] / sn[c]; cg[c] = sg[c] / sn[c]; cb[c] = sb[c] / sn[c]; }
+            }
+            for (let c = 0; c < k; c++) { centroids[c].r = cr[c]; centroids[c].g = cg[c]; centroids[c].b = cb[c]; }
+            return assignments;
+        }
+
+        function updateOrientations(lum, assignments) {
+            const Jxx = new Float32Array(K), Jyy = new Float32Array(K), Jxy = new Float32Array(K);
+            for (let y = 1; y < PH - 1; y++) for (let x = 1; x < PW - 1; x++) {
+                const p = y * PW + x;
+                const gx = lum[p + 1] - lum[p - 1], gy = lum[p + PW] - lum[p - PW], c = assignments[p];
+                Jxx[c] += gx * gx; Jyy[c] += gy * gy; Jxy[c] += gx * gy;
+            }
+            while (angleVec.length < K) angleVec.push({ x: 0, y: 0 });
+            for (let c = 0; c < K; c++) {
+                const tot = Jxx[c] + Jyy[c] + 1e-6;
+                angleVec[c].x = 0.85 * angleVec[c].x + 0.15 * (Jxx[c] - Jyy[c]) / tot;
+                angleVec[c].y = 0.85 * angleVec[c].y + 0.15 * (2 * Jxy[c]) / tot;
+            }
+        }
+
+        function stripe(t0, per, inside) {
+            const t = t0 - per * Math.floor(t0 / per);
+            const d = t < inside ? Math.min(t, inside - t) : -Math.min(t - inside, per - t);
+            return d <= -0.5 ? 0 : d >= 0.5 ? 1 : d + 0.5;
+        }
+        const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+        function segDist(px, py, ax, ay, bx, by) {
+            const vx = bx - ax, vy = by - ay;
+            let t = ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy);
+            t = t < 0 ? 0 : t > 1 ? 1 : t;
+            return Math.hypot(px - ax - t * vx, py - ay - t * vy);
+        }
+
+        function bearDist(x, y, ph) {
+            y += 0.085 - 0.04 * Math.sin(2 * ph);
+            const sa = Math.sin(ph), sb = -sa;
+            let d = (Math.hypot(x / 0.28, (y - 0.08) / 0.34) - 1) * 0.28;
+            d = Math.min(d, Math.hypot(x, y + 0.34) - 0.17);
+            d = Math.min(d, Math.hypot(Math.abs(x) - 0.14, y + 0.48) - 0.07);
+            for (let s = -1; s <= 1; s += 2) {
+                const a = 1.1 + 0.7 * (s < 0 ? sa : sb);
+                d = Math.min(d, segDist(x, y, 0.22 * s, -0.12, 0.22 * s + 0.3 * s * Math.sin(a), -0.12 + 0.3 * Math.cos(a)) - 0.065);
+                const b = 0.35 * (s < 0 ? sb : sa);
+                d = Math.min(d, segDist(x, y, 0.12 * s, 0.38, 0.12 * s + 0.26 * Math.sin(b) + 0.06 * s, 0.38 + 0.26 * Math.cos(b)) - 0.085);
+            }
+            return d;
+        }
+
+        function renderPatterns(assignments, paper) {
+            const spectrum = spectrumEnabled();
+            const fixedBrightness = constantWaveformBrightness.checked;
+            const tones = centroids.map(c => (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255);
+            const tMin = Math.min(...tones), tMax = Math.max(...tones);
+            const bg = paper ? [244, 242, 236] : [13, 17, 23];
+
+            const P = [];
+            for (let c = 0; c < K; c++) {
+                const cfg = regionCfg[c], pat = PATTERNS[spectrum ? 0 : cfg.pattern], st = motionState[c], type = pat.t;
+                const stretched = (tones[c] - tMin) / (tMax - tMin + 1e-3);
+                const tone = 0.35 * tones[c] + 0.65 * stretched;
+                const cov = Math.min(pat.max, Math.max(0.08, paper ? 1 - tone : tone));
+
+                let base = 0.785;
+                const a = angleVec[c];
+                if (a && Math.hypot(a.x, a.y) > 0.03) base = 0.5 * Math.atan2(a.y, a.x);
+
+                const mot = MOTIONS[cfg.motion];
+                let ang = base, tw = 0, ox = 0, oy = 0;
+                if (mot === 'spin') ang += st.spin;
+                else if (mot === 'twirl') { if (type < 3) ang += st.tw; else tw = st.tw; }
+                else if (mot === 'drift') { ox = st.dist * Math.cos(base); oy = st.dist * Math.sin(base); }
+
+                if (spectrum) { ang = c * Math.PI / K + bands[c].rotation; tw = 0; ox = 0; oy = 0; }
+                let depth = 0, inv = false;
+                if (type === 8) {
+                    inv = cov < 0.5;
+                    depth = Math.max(1, Math.min(4, Math.round(Math.log(inv ? 1 - cov : cov) / Math.log(8 / 9))));
+                }
+                const per = patternScale * (spectrum ? 15 : type < 3 ? 3 + (1 - cov) * 8
+                          : type === 7 ? 16 + (1 - cov) * 10
+                          : type === 8 ? (depth >= 4 ? 121 : 60)
+                          : type === 9 ? 72
+                          : type === 10 ? 40 + (1 - cov) * 24
+                          : type === 11 ? 14 + (1 - cov) * 10
+                          : type >= 12 ? 22 + (1 - cov) * 12
+                          : 6 + (1 - cov) * 8);
+                const q = {
+                    audioBand: spectrum ? bands[c] : null,
+                    type, per, ox, oy, phase: st.morph * 2, cov,
+                    cos: Math.cos(ang), sin: Math.sin(ang), tc: Math.cos(tw), ts: Math.sin(tw),
+                    inside: 0, amp: per * 0.35, freq: 2 * Math.PI / (per * 3), s1: 0, s2: 0
+                };
+                if (type === 0 || type === 2) q.inside = cov * per;
+                else if (type === 1) q.inside = (1 - Math.sqrt(1 - cov)) * per;
+                else if (type === 3) q.s1 = Math.min(0.5 * per, per * Math.sqrt(cov / Math.PI));
+                else if (type === 4) q.s1 = 0.5 * per * Math.sqrt(cov);
+                else if (type === 5) {
+                    q.s1 = 0.46 * per;
+                    q.s2 = q.s1 - Math.sqrt(Math.max(0, q.s1 * q.s1 - cov * per * per / 4));
+                } else if (type === 6) q.s1 = Math.min(0.5 * per, per * Math.sqrt(cov / 1.73));
+                else if (type === 7) { q.s1 = per * Math.min(0.79, Math.sqrt(cov / 0.58)); q.phase = st.morph * 4; }
+                else if (type === 8) { q.depth = depth; q.inv = inv; q.n = Math.pow(3, depth); }
+                else if (type === 9) { q.cr = 0.7885 * Math.cos(st.morph * 0.5); q.ci = 0.7885 * Math.sin(st.morph * 0.5); q.interior = cov > 0.5; q.cov = cov; }
+                else if (type === 10) { q.cov = cov; q.k = per / 6; }
+                else { q.s1 = cov * per * 2 / Math.PI; q.phase = st.morph * 2; }
+
+                if (spectrum) q.inside = 1.2;
+                if (paper) q.ink = [20, 20, 26];
+                else {
+                    const m = Math.max(centroids[c].r, centroids[c].g, centroids[c].b, 1);
+                    q.ink = [centroids[c].r * 255 / m, centroids[c].g * 255 / m, centroids[c].b * 255 / m];
+                }
+                P.push(q);
+            }
+
+            if (gpuPatterns.draw(assignments, P, bg, fixedBrightness)) return;
+
+            const out = patternImg.data;
+            let o = 0;
+            for (let y = 0; y < OUT_H; y++) {
+                for (let x = 0; x < OUT_W; x++) {
+                    const q = P[assignments[regionAt(x, y)]];
+                    const px = x - q.ox, py = y - q.oy;
+                    const u = px * q.cos + py * q.sin, v = -px * q.sin + py * q.cos;
+                    let alpha;
+
+                    if (q.audioBand) {
+                        const b = q.audioBand;
+                        const displacement = traceAt(b, v) * b.level * vibAmp;
+                        const visibility = fixedBrightness ? 1 : Math.min(1, b.level * 8) * Math.min(1, b.tracePeak * 10000);
+                        alpha = stripe(u - displacement, q.per, q.inside) * visibility;
+                    } else if (q.type === 0) alpha = stripe(u, q.per, q.inside);
+                    else if (q.type === 1) alpha = Math.max(stripe(u, q.per, q.inside), stripe(v, q.per, q.inside));
+                    else if (q.type === 2) alpha = stripe(u + q.amp * Math.sin(v * q.freq), q.per, q.inside);
+                    else {
+                        const fu = (u - q.per * Math.floor(u / q.per)) - q.per / 2;
+                        const fv = (v - q.per * Math.floor(v / q.per)) - q.per / 2;
+                        const gu = fu * q.tc + fv * q.ts, gv = -fu * q.ts + fv * q.tc;
+                        if (q.type === 3) alpha = clamp01(q.s1 - Math.hypot(gu, gv) + 0.5);
+                        else if (q.type === 4) alpha = clamp01(q.s1 - Math.max(Math.abs(gu), Math.abs(gv)) + 0.5);
+                        else if (q.type === 5) {
+                            const au = Math.abs(gu), av = Math.abs(gv);
+                            const d = Math.min(Math.max(au - q.s1, av - q.s2), Math.max(av - q.s1, au - q.s2));
+                            alpha = clamp01(0.5 - d);
+                        } else if (q.type === 6) {
+                            let f = (Math.atan2(gv, gu) + Math.PI) / (Math.PI * 0.4);
+                            f -= Math.floor(f);
+                            const rr = q.s1 * (1 - STAR_Q * Math.abs(2 * f - 1));
+                            alpha = clamp01(rr - Math.hypot(gu, gv) + 0.5);
+                        } else if (q.type === 7) {
+                            if (Math.abs(gu) > 0.62 * q.s1 || Math.abs(gv) > 0.76 * q.s1) alpha = 0;
+                            else {
+                                const par = (Math.floor(u / q.per) + Math.floor(v / q.per)) & 1;
+                                alpha = clamp01(0.5 - bearDist(gu / q.s1, gv / q.s1, q.phase + par * Math.PI) * q.s1);
+                            }
+                        } else if (q.type === 8) {
+                            let a = Math.floor((gu + q.per / 2) / q.per * q.n), b = Math.floor((gv + q.per / 2) / q.per * q.n);
+                            a = a < 0 ? 0 : a >= q.n ? q.n - 1 : a;
+                            b = b < 0 ? 0 : b >= q.n ? q.n - 1 : b;
+                            let hole = false;
+                            for (let l = 0; l < q.depth; l++) {
+                                if (a % 3 === 1 && b % 3 === 1) { hole = true; break; }
+                                a = (a / 3) | 0; b = (b / 3) | 0;
+                            }
+                            alpha = (hole === q.inv) ? 1 : 0;
+                        } else if (q.type === 9) {
+                            let zr = gu / (q.per * 0.5) * 1.5, zi = gv / (q.per * 0.5) * 1.5, it = 0;
+                            while (it < 24 && zr * zr + zi * zi < 16) {
+                                const t = zr * zr - zi * zi + q.cr;
+                                zi = 2 * zr * zi + q.ci; zr = t; it++;
+                            }
+                            if (it >= 24) alpha = q.interior ? 1 : 0;
+                            else {
+                                const sm = it + 1 - Math.log(0.5 * Math.log(zr * zr + zi * zi)) / Math.LN2;
+                                const band = sm * 0.35;
+                                alpha = (band - Math.floor(band)) < q.cov ? 1 : 0;
+                            }
+                        } else if (q.type === 10) {
+                            const sv = Math.hypot(gu, gv) / (q.per * 0.5) * 3 + 3 * Math.atan2(gv, gu) / (2 * Math.PI);
+                            alpha = stripe(sv * q.k, q.k, q.cov * q.k);
+                        } else if (q.type === 12) {
+                            const ix = Math.floor(u / q.per), iy = Math.floor(v / q.per);
+                            const hash = (Math.imul(ix, 73856093) ^ Math.imul(iy, 19349663)) >>> 0;
+                            const pulse = .5 + .5 * Math.sin(q.phase + (hash % 1024) * .031);
+                            const radius = q.per * (.15 + .26 * pulse);
+                            const diamond = Math.sqrt(Math.abs(gu)) + Math.sqrt(Math.abs(gv));
+                            const core = clamp01((Math.sqrt(radius) - diamond) * 1.8 + .5);
+                            const halo = Math.exp(-(gu*gu + gv*gv) / (radius*radius*.45)) * .18;
+                            alpha = Math.min(1, (core + halo) * (.35 + .65 * pulse));
+                        } else if (q.type === 13) {
+                            const radius = Math.hypot(gu, gv);
+                            const spacing = q.per / 5;
+                            alpha = stripe(radius - q.phase * spacing * .25, spacing, spacing * q.cov * .65);
+                            alpha *= clamp01(q.per * .48 - radius);
+                        } else {
+                            const ix = Math.floor(u / q.per), iy = Math.floor(v / q.per);
+                            let h = Math.imul(ix, 73856093) ^ Math.imul(iy, 19349663);
+                            h ^= h >>> 13; h = Math.imul(h, 1274126177); h ^= h >>> 16;
+                            const flip = (h & 1) ^ (Math.sin(q.phase + ((h >>> 3) & 255) * 0.5) > 0.35 ? 1 : 0);
+                            const hh = q.per / 2, sg = flip ? 1 : -1;
+                            const d = Math.min(Math.abs(Math.hypot(gu - sg * hh, gv + hh) - hh),
+                                               Math.abs(Math.hypot(gu + sg * hh, gv - hh) - hh));
+                            alpha = clamp01(q.s1 / 2 - d + 0.5);
+                        }
+                    }
+
+                    out[o]     = bg[0] + (q.ink[0] - bg[0]) * alpha;
+                    out[o + 1] = bg[1] + (q.ink[1] - bg[1]) * alpha;
+                    out[o + 2] = bg[2] + (q.ink[2] - bg[2]) * alpha;
+                    out[o + 3] = 255;
+                    o += 4;
+                }
+            }
+            outCtx.putImageData(patternImg, 0, 0);
+        }
+
+        function calculateMetrics(now) {
+            frameCount++;
+            if (now - lastTime >= 1000) {
+                telemetry.textContent = `Status: ${demoMode ? "Demo" : cameraOn ? "Live" : "Scene held"} | Regions: ${K} | FPS: ${frameCount} | ${gpuPatterns.active ? 'GPU' : 'CPU'}`;
+                frameCount = 0;
+                lastTime = now;
+            }
+        }
+
+        const frameEl = document.getElementById('viewport-frame');
+        function resizeToFrame() {
+            const r = frameEl.getBoundingClientRect();
+            if (r.width < 10 || r.height < 10) return;
+            const aspect = Math.max(0.5, Math.min(3, r.width / r.height));
+            const newPW = Math.max(48, Math.min(270, Math.round(PH * aspect)));
+            if (newPW === PW) return;
+
+            const oldPW = PW, oldAssign = lastAssign, oldLum = lastLuminance;
+            PW = newPW; OUT_W = PW * SCALE;
+            procCanvas.width = PW; procCanvas.height = PH;
+            procImg = procCtx.createImageData(PW, PH);
+            outCanvas.width = OUT_W; outCanvas.height = OUT_H;
+            patternImg = outCtx.createImageData(OUT_W, OUT_H);
+            warpX = new Float32Array(OUT_H); warpY = new Float32Array(OUT_W);
+            gpuPatterns.resize();
+            gpuFields.resize();
+            edgeMap = new Float32Array(PW * PH);
+            cartoonCanvas.width = PW; cartoonCanvas.height = PH;
+            cartoonImage = cartoonCtx.createImageData(PW, PH);
+            cartoonLabels = new Uint8Array(PW * PH);
+            cartoonEdges = new Float32Array(PW * PH);
+            cartoonSource = null; imageVectorField = null; edgeMapDirty = true;
+
+            if (demoMode) { makeDemo(); return; }
+            if (cameraOn || !oldAssign) { lastAssign = null; lastLuminance = null; return; }
+            const oa = oldPW / PH, na = PW / PH, a = new Uint8Array(PW * PH), l = new Float32Array(PW * PH);
+            for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+                let u = (x + .5) / PW, v = (y + .5) / PH;
+                if (na > oa) v = .5 + (v - .5) * (oa / na); else u = .5 + (u - .5) * (na / oa);
+                const sx = Math.min(oldPW - 1, Math.max(0, Math.floor(u * oldPW))), sy = Math.min(PH - 1, Math.max(0, Math.floor(v * PH)));
+                a[y * PW + x] = oldAssign[sy * oldPW + sx];
+                if (oldLum) l[y * PW + x] = oldLum[sy * oldPW + sx];
+            }
+            lastAssign = a; lastLuminance = oldLum ? l : null;
+        }
+        let resizePending = false;
+        function queueResize() {
+            if (resizePending) return;
+            resizePending = true;
+            requestAnimationFrame(() => { resizePending = false; resizeToFrame(); });
+        }
+        if ('ResizeObserver' in window) {
+            new ResizeObserver(queueResize).observe(frameEl);
+        } else {
+            // Older iOS Safari has no ResizeObserver; still handle rotation and URL-bar resizing.
+            window.addEventListener('resize', queueResize);
+            window.addEventListener('orientationchange', () => setTimeout(queueResize, 300));
+        }
+        window.addEventListener('load', resizeToFrame);
+        resizeToFrame();
+
+        buildRegionPanel();
+        const collapseBtn = document.getElementById('collapse-toggle');
+        function toggleControls() {
+            const hidden = document.body.classList.toggle('controls-hidden');
+            collapseBtn.textContent = hidden ? 'Show controls' : 'Hide controls';
+        }
+        collapseBtn.addEventListener('click', toggleControls);
+        window.addEventListener('keydown', (e) => {
+            const tag = (e.target.tagName || '').toLowerCase();
+            if ((e.key === 'h' || e.key === 'H') && tag !== 'input' && tag !== 'select') toggleControls();
+        });
+
+/* ============================================================
+   K-MEANS PATTERN STUDIO — PERSISTENT SETTINGS
+   ============================================================ */
+
+const SETTINGS_STORAGE_KEY = "kmeans-pattern-studio-v1";
+
+let restoringSettings = false;
+let settingsSaveTimer = null;
+
+// Controls that should NOT be saved.
+const SETTINGS_EXCLUDED_IDS = new Set([
+    "mode",
+    "cameraSelect",
+    "fileInput",
+    "audioFile",
+    "startCamera",
+    "stopCamera"
+]);
+
+// Find controls that have an ID or name.
+function getSettingsControls() {
+    return Array.from(
+        document.querySelectorAll(
+            "input, select, textarea"
+        )
+    ).filter(el => {
+        if (!el.id && !el.name) return false;
+
+        if (SETTINGS_EXCLUDED_IDS.has(el.id)) {
+            return false;
+        }
+
+        if ([
+            "file",
+            "button",
+            "submit",
+            "reset",
+            "password",
+            "hidden"
+        ].includes(el.type)) {
+            return false;
+        }
+
+        return true;
+    });
+}
+
+// Capture current UI settings.
+function collectSettings() {
+    const settings = {};
+
+    for (const el of getSettingsControls()) {
+        const key = el.id || el.name;
+
+        if (el.type === "checkbox") {
+            settings[key] = el.checked;
+        } else if (el.type === "radio") {
+            if (el.checked) {
+                settings[key] = el.value;
+            }
+        } else {
+            settings[key] = el.value;
+        }
+    }
+
+    return settings;
+}
+
+// Save to browser storage.
+function saveSettings() {
+    if (restoringSettings) return;
+
+    try {
+        localStorage.setItem(
+            SETTINGS_STORAGE_KEY,
+            JSON.stringify(collectSettings())
+        );
+    } catch (error) {
+        console.warn(
+            "Unable to save K-means settings:",
+            error
+        );
+    }
+}
+
+// Debounce saves so slider movement doesn't cause
+// excessive storage writes.
+function scheduleSettingsSave() {
+    if (restoringSettings) return;
+
+    clearTimeout(settingsSaveTimer);
+
+    settingsSaveTimer = setTimeout(
+        saveSettings,
+        250
+    );
+}
+
+// Restore saved values and trigger the existing
+// UI event handlers to update JavaScript variables.
+function restoreSettings() {
+    let settings;
+
+    try {
+        const saved = localStorage.getItem(
+            SETTINGS_STORAGE_KEY
+        );
+
+        if (!saved) return;
+
+        settings = JSON.parse(saved);
+
+        if (
+            !settings ||
+            typeof settings !== "object" ||
+            Array.isArray(settings)
+        ) {
+            return;
+        }
+    } catch (error) {
+        console.warn(
+            "Unable to load K-means settings:",
+            error
+        );
+        return;
+    }
+
+    restoringSettings = true;
+
+    try {
+        const controls = getSettingsControls();
+
+        // First restore all control values.
+        for (const el of controls) {
+            const key = el.id || el.name;
+
+            if (!Object.prototype.hasOwnProperty.call(
+                settings, key
+            )) {
+                continue;
+            }
+
+            const value = settings[key];
+
+            if (el.type === "checkbox") {
+                el.checked = Boolean(value);
+            } else if (el.type === "radio") {
+                el.checked = el.value === String(value);
+            } else {
+                el.value = String(value);
+            }
+        }
+
+        // Then notify the existing event handlers.
+        // All values have already been restored.
+        for (const el of controls) {
+            const key = el.id || el.name;
+
+            if (!Object.prototype.hasOwnProperty.call(
+                settings, key
+            )) {
+                continue;
+            }
+
+            if (el.type === "radio" && !el.checked) {
+                continue;
+            }
+
+            el.dispatchEvent(new Event("input", {
+                bubbles: false
+            }));
+
+            el.dispatchEvent(new Event("change", {
+                bubbles: false
+            }));
+        }
+
+        console.log(
+            "K-means settings restored successfully."
+        );
+    } finally {
+        restoringSettings = false;
+    }
+}
+
+// Save changes made to any setting.
+document.addEventListener(
+    "input",
+    scheduleSettingsSave
+);
+
+document.addEventListener(
+    "change",
+    scheduleSettingsSave
+);
+
+// Restore after the existing script has initialized.
+restoreSettings();
+
+// Render always starts on Contour Flow, regardless of saved settings or browser form restore.
+(function () {
+    const m = document.getElementById('mode');
+    m.value = 'contourflow';
+    m.dispatchEvent(new Event('change'));
+})();
+
+// Optional: manually reset all saved settings
+// from the developer console by calling:
+// resetSavedSettings()
+function resetSavedSettings() {
+    try {
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+
+        console.log(
+            "Saved settings cleared. Reload to use defaults."
+        );
+    } catch (error) {
+        console.warn(error);
+    }
+}
+
+        function isIOSDevice() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+        // iPhone Safari defers camera access until a tap (and preview iframes such as CodePen block
+        // it outright), so start in the demo scene and let the camera button request permission.
+        if (isIOSDevice() || embeddedInFrame()) {
+            makeDemo();
+            camToggle.textContent = 'Turn Camera On';
+            camToggle.className = 'cam-off';
+            document.getElementById('source-note').textContent = embeddedInFrame()
+                ? 'Demo scene · open this page directly in Safari (not a preview iframe) to use the camera.'
+                : 'Demo scene · tap Turn Camera On to allow camera access.';
+        } else if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', startCamera);
+        } else {
+            startCamera();
+        }
+    </script>
+</body>
+</html>

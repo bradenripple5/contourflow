@@ -1,0 +1,147 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "contourflow.html"
+      - "ios/**"
+      - ".github/workflows/ios-ipa.yml"
+
+jobs:
+  device-ipa:
+    name: Device IPA (unsigned)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync web app into the app bundle
+        run: ./ios/sync-web.sh
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (unsigned)
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ContourFlow.xcodeproj \
+            -scheme ContourFlow \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release-iphoneos/ContourFlow.app"
+          test -d "$APP"
+          test -f "$APP/contourflow.html"
+          rm -rf Payload ContourFlow-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry ContourFlow-unsigned.ipa Payload
+          ls -lh ContourFlow-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ContourFlow-unsigned-ipa
+          path: ios/ContourFlow-unsigned.ipa
+          if-no-files-found: error
+
+  simulator:
+    name: Simulator screenshot
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync web app into the app bundle
+        run: ./ios/sync-web.sh
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build for the simulator
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ContourFlow.xcodeproj \
+            -scheme ContourFlow \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+          APP="build-sim/Build/Products/Release-iphonesimulator/ContourFlow.app"
+          test -d "$APP"
+          test -f "$APP/contourflow.html"
+
+          # The simulator does not verify signatures, but an ad-hoc signature
+          # keeps the bundle usable if it is downloaded and opened on a Mac.
+          codesign --force --deep --sign - "$APP" 2>/dev/null || true
+
+          # Appetize takes simulator .app bundles, not .ipa files.
+          ditto -c -k --sequesterRsrc --keepParent "$APP" ContourFlow-simulator.zip
+
+      - name: Boot a simulator
+        id: device
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              iphones = [d for d in devices[runtime] if d["name"].startswith("iPhone")]
+              if iphones:
+                  print(iphones[0]["udid"])
+                  break
+          ')
+          test -n "$UDID"
+          echo "Using simulator $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Install, launch and capture
+        working-directory: ios
+        env:
+          UDID: ${{ steps.device.outputs.udid }}
+        run: |
+          set -euo pipefail
+          APP="build-sim/Build/Products/Release-iphonesimulator/ContourFlow.app"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" com.contourflow.app
+          sleep 12
+          xcrun simctl io "$UDID" screenshot simulator-screenshot.png
+          xcrun simctl spawn "$UDID" log show --last 3m \
+            --predicate 'process == "ContourFlow"' > simulator-log.txt 2>&1 || true
+          tail -n 40 simulator-log.txt || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ContourFlow-simulator
+          path: |
+            ios/simulator-screenshot.png
+            ios/simulator-log.txt
+            ios/ContourFlow-simulator.zip
+          if-no-files-found: error
