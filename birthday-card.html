@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Happy Birthday! 🎂</title>
+<meta name="theme-color" content="#fdf6d8">
+<style>
+  :root {
+    --paper: #fffcef;
+    --cream: #fdf6d8;
+    --ink: #22402c;
+    --green: #2f8f5a;
+    --green-deep: #1f6b42;
+    --yellow: #f2c94c;
+    --yellow-soft: #ffe9a3;
+    --red: #d92b2b;
+    --hand: "Patrick Hand", "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Segoe Print", "Bradley Hand", cursive;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    align-items: safe center;
+    justify-content: center;
+    padding: clamp(10px, 3vw, 26px);
+    overflow-x: hidden;
+    font-family: var(--hand);
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 16% 10%, #fffbe2 0, rgba(255, 251, 226, 0) 42%),
+      radial-gradient(circle at 86% 90%, #eef4d6 0, rgba(238, 244, 214, 0) 46%),
+      var(--cream);
+    background-attachment: fixed;
+  }
+
+  .screen { display: none; width: 100%; justify-content: center; align-items: center; }
+  .screen.active { display: flex; animation: fade-in .4s ease both; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- the card ---------- */
+  .card {
+    position: relative;
+    width: min(88vw, 440px);
+    aspect-ratio: 4 / 3;
+    perspective: 1500px;
+  }
+
+  .card-inside {
+    position: absolute;
+    inset: 0;
+    border: 3px solid var(--green-deep);
+    border-radius: 16px;
+    background: var(--paper);
+    box-shadow: 7px 9px 0 rgba(31, 107, 66, .12);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 15px;
+    color: rgba(34, 64, 44, .65);
+  }
+
+  .card-cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 8px;
+    font-family: inherit;
+    color: var(--ink);
+    border: 3px solid var(--green-deep);
+    border-radius: 16px;
+    background: linear-gradient(150deg, #fff5c4, #f6dd86 58%, #ffeeb2);
+    box-shadow: 7px 9px 0 rgba(31, 107, 66, .16);
+    transform-origin: left center;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    transition: transform .9s cubic-bezier(.34, .9, .24, 1), box-shadow .9s;
+    cursor: pointer;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card-cover::before {
+    content: "";
+    position: absolute;
+    inset: 12px;
+    border: 2px dashed rgba(31, 107, 66, .38);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+  .card-cover::after {
+    content: "✦";
+    position: absolute;
+    right: 24px;
+    top: 16px;
+    font-size: 20px;
+    color: rgba(47, 143, 90, .6);
+  }
+  .card-cover.open {
+    transform: rotateY(-172deg);
+    box-shadow: 0 0 0 rgba(31, 107, 66, 0);
+  }
+  .cover-kicker {
+    font-size: 13px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--green-deep);
+  }
+  .cover-title {
+    font-size: clamp(34px, 9vw, 54px);
+    line-height: .95;
+    font-weight: 400;
+  }
+  .cover-title em {
+    display: inline-block;
+    transform: rotate(-2deg);
+    font-style: normal;
+    color: var(--green-deep);
+  }
+  .cover-hint {
+    font-size: 14px;
+    color: rgba(34, 64, 44, .62);
+    border-bottom: 2px dotted rgba(34, 64, 44, .3);
+    padding-bottom: 1px;
+  }
+
+  /* ---------- the game ---------- */
+  .game-card {
+    position: relative;
+    width: 100%;
+    max-width: 920px;
+    padding: clamp(14px, 2.8vw, 24px);
+    border: 3px solid var(--green-deep);
+    border-radius: 18px;
+    background: var(--paper);
+    box-shadow: 8px 10px 0 rgba(31, 107, 66, .12);
+  }
+  .game-card::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 2px dashed rgba(31, 107, 66, .2);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 3px 12px;
+  }
+  .kicker {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--green-deep);
+  }
+  .stats {
+    margin: 0;
+    font-size: 12px;
+    color: rgba(34, 64, 44, .66);
+  }
+  .stats b { font-weight: 400; color: var(--red); }
+
+  .game-title {
+    margin: 2px 0 0;
+    font-size: clamp(22px, 4.6vw, 32px);
+    font-weight: 400;
+    color: var(--green-deep);
+  }
+  .sub {
+    margin: 4px 0 10px;
+    font-size: clamp(12px, 2.3vw, 15px);
+    color: rgba(34, 64, 44, .78);
+  }
+
+  .stage {
+    position: relative;
+    width: min(100%, calc(60vh * var(--stage-ratio, 1.3352)));
+    margin: 0 auto;
+    aspect-ratio: 956 / 716;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--paper);
+    touch-action: none;
+    cursor: pointer;
+  }
+  .stage.shake { animation: shake .55s ease-in-out; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-7px, 3px) rotate(-.4deg); }
+    40% { transform: translate(6px, -4px) rotate(.4deg); }
+    60% { transform: translate(-5px, -2px) rotate(-.2deg); }
+    80% { transform: translate(4px, 3px) rotate(.2deg); }
+  }
+
+  #maze { display: block; width: 100%; height: 100%; }
+
+  .toast {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    max-width: 86%;
+    padding: 12px 18px;
+    text-align: center;
+    font-size: clamp(16px, 3vw, 26px);
+    line-height: 1.08;
+    color: var(--red);
+    background: rgba(255, 252, 239, .94);
+    border: 2.5px solid var(--red);
+    border-radius: 12px;
+    box-shadow: 4px 5px 0 rgba(217, 43, 43, .18);
+    transform: translate(-50%, -50%) rotate(-2.5deg) scale(.9);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .12s, transform .18s cubic-bezier(.2, 1.7, .5, 1);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, -50%) rotate(-2.5deg) scale(1); }
+  .toast.good {
+    color: var(--green-deep);
+    border-color: var(--green-deep);
+    box-shadow: 4px 5px 0 rgba(31, 107, 66, .16);
+  }
+  .toast.good .toast-sub { color: var(--green-deep); }
+  .toast-sub {
+    font-size: .5em;
+    color: #8c1c1c;
+    letter-spacing: .04em;
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    margin-top: 9px;
+  }
+  .tip {
+    margin: 0;
+    text-align: center;
+    font-size: 13px;
+    color: rgba(34, 64, 44, .68);
+  }
+  .linkish {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
+    color: var(--green-deep);
+    border-bottom: 2px dotted rgba(31, 107, 66, .4);
+    cursor: pointer;
+  }
+
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(3, 50px);
+    gap: 4px;
+    margin: 0 auto;
+  }
+  .pad-up { grid-area: 1 / 2; }
+  .pad-left { grid-area: 2 / 1; }
+  .pad-right { grid-area: 2 / 3; }
+  .pad-down { grid-area: 3 / 2; }
+  .pad-btn {
+    display: grid;
+    place-items: center;
+    font-family: inherit;
+    font-size: 17px;
+    color: var(--green-deep);
+    background: var(--yellow-soft);
+    border: 2px solid var(--green-deep);
+    border-radius: 10px;
+    cursor: pointer;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pad-btn:active { transform: translateY(1px); background: var(--yellow); }
+
+  @media (hover: hover) and (pointer: fine) {
+    .pad { display: none; }
+  }
+
+  .tiny-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 4px 10px;
+  }
+  .dot { color: rgba(34, 64, 44, .4); }
+
+  .quiz {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(34, 64, 44, .3);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+  .quiz[hidden] { display: none; }
+  .quiz-card {
+    width: min(94vw, 460px);
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: clamp(16px, 4vw, 24px);
+    text-align: center;
+    border: 3px solid var(--green-deep);
+    border-radius: 16px;
+    background: var(--paper);
+    box-shadow: 7px 9px 0 rgba(31, 107, 66, .18);
+  }
+  .quiz-q {
+    margin: 6px 0 14px;
+    font-size: clamp(17px, 3.6vw, 21px);
+    line-height: 1.15;
+  }
+  .quiz-options { display: grid; gap: 8px; }
+  .quiz-opt {
+    font-family: inherit;
+    font-size: clamp(14px, 2.8vw, 16px);
+    line-height: 1.2;
+    padding: 10px 12px;
+    text-align: left;
+    color: var(--ink);
+    background: var(--yellow-soft);
+    border: 2px solid var(--green-deep);
+    border-radius: 10px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .quiz-opt:active { transform: translateY(1px); background: var(--yellow); }
+  .quiz-opt:disabled { cursor: default; }
+  .quiz-opt.right { background: #cdeccd; }
+  .quiz-opt.wrong { background: #ffd7d7; border-color: var(--red); color: #8c1c1c; }
+  .quiz-feedback {
+    min-height: 1.2em;
+    margin: 10px 0 12px;
+    font-size: 15px;
+    color: var(--green-deep);
+  }
+  .quiz-feedback.bad { color: var(--red); }
+  .quiz-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  /* ---------- win ---------- */
+  .win-card {
+    width: min(90vw, 480px);
+    padding: clamp(22px, 5vw, 34px);
+    text-align: center;
+    border: 3px solid var(--green-deep);
+    border-radius: 18px;
+    background: var(--paper);
+    box-shadow: 8px 10px 0 rgba(31, 107, 66, .14);
+  }
+  .win-title {
+    margin: 4px 0 10px;
+    font-size: clamp(34px, 8vw, 52px);
+    font-weight: 400;
+    line-height: .95;
+    color: var(--green-deep);
+  }
+  .win-msg {
+    margin: 0 0 6px;
+    font-size: clamp(14px, 2.8vw, 17px);
+    color: rgba(34, 64, 44, .82);
+  }
+  .win-msg.small { font-size: clamp(13px, 2.4vw, 15px); color: rgba(34, 64, 44, .6); }
+  .win-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 18px;
+  }
+  .btn {
+    font-family: inherit;
+    font-size: 15px;
+    padding: 8px 18px;
+    border: 2.5px solid var(--green-deep);
+    border-radius: 999px;
+    background: var(--yellow-soft);
+    color: var(--green-deep);
+    cursor: pointer;
+    box-shadow: 3px 3px 0 rgba(31, 107, 66, .16);
+  }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(31, 107, 66, .16); }
+  .btn.ghost { background: transparent; }
+  .btn[hidden] { display: none; }
+
+  .confetti { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+  .confetti i {
+    position: absolute;
+    top: -14vh;
+    display: block;
+    border-radius: 2px;
+    animation-name: fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes fall {
+    to { transform: translateY(120vh) rotate(700deg); }
+  }
+</style>
+</head>
+<body>
+
+<section class="screen active" id="card-screen">
+  <div class="card">
+    <div class="card-inside">
+      <p>ten mazes, one cake,<br>and a lot of traps</p>
+    </div>
+    <button class="card-cover" id="open-card" type="button">
+      <span class="cover-kicker">for you</span>
+      <span class="cover-title">Happy<br><em>Birthday!</em></span>
+      <span class="cover-hint">tap to open</span>
+    </button>
+  </div>
+</section>
+
+<section class="screen" id="game-screen">
+  <div class="game-card">
+    <div class="hud">
+      <p class="kicker" id="level-kicker">level 1 of 10</p>
+      <p class="stats" id="level-stats"></p>
+    </div>
+    <h1 class="game-title">Happy Birthday!</h1>
+    <p class="sub" id="level-note">Two shortcuts to the cake. Only one route isn't rigged.</p>
+
+    <div class="stage" id="stage">
+      <canvas id="maze" role="img" aria-label="Hand-drawn birthday maze. Tap or press in the direction you want to walk."></canvas>
+      <div class="toast" id="toast" role="status" aria-live="assertive">
+        <span id="toast-main"></span>
+        <span class="toast-sub" id="toast-sub">back to the start you go</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="pad" id="pad" aria-label="Movement controls">
+        <button type="button" class="pad-btn pad-up" data-dir="n" aria-label="Move up">▲</button>
+        <button type="button" class="pad-btn pad-left" data-dir="w" aria-label="Move left">◀</button>
+        <button type="button" class="pad-btn pad-right" data-dir="e" aria-label="Move right">▶</button>
+        <button type="button" class="pad-btn pad-down" data-dir="s" aria-label="Move down">▼</button>
+      </div>
+      <p class="tip" id="tip">tap the maze in the direction you want to go · or use arrow keys / WASD</p>
+      <div class="tiny-actions">
+        <button type="button" class="linkish" id="quiz-btn">answer a question → skip to the cake</button>
+        <span class="dot" aria-hidden="true">·</span>
+        <button type="button" class="linkish" id="reset-run">restart this level</button>
+      </div>
+    </div>
+
+    <div class="quiz" id="quiz" hidden>
+      <div class="quiz-card" role="dialog" aria-modal="true" aria-labelledby="quiz-q">
+        <p class="kicker">one cs question</p>
+        <p class="quiz-q" id="quiz-q"></p>
+        <div class="quiz-options" id="quiz-options"></div>
+        <p class="quiz-feedback" id="quiz-feedback"></p>
+        <div class="quiz-actions">
+          <button type="button" class="btn ghost" id="quiz-close">back to the maze</button>
+          <button type="button" class="btn ghost" id="quiz-skip">i don't know</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="win-screen">
+  <div class="win-card">
+    <p class="kicker" id="win-kicker">level 1 of 10 cleared</p>
+    <h1 class="win-title">Happy<br>Birthday!</h1>
+    <p class="win-msg" id="win-msg"></p>
+    <p class="win-msg small" id="win-small">Hope your year is twisty in all the good ways.</p>
+    <div class="win-actions">
+      <button type="button" class="btn" id="next-level">next level →</button>
+      <button type="button" class="btn ghost" id="again">play this level again</button>
+      <button type="button" class="btn ghost" id="to-card">back to the card</button>
+    </div>
+  </div>
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+
+  /* MAZE_ALGO_START */
+  /*
+   * generateMaze(width, height, numPaths, options)
+   *
+   * width, height : maze size in cells.
+   * numPaths      : how many extra routes to the cake to cut into the maze.
+   * options.seed  : deterministic layout seed.
+   *
+   * Builds a perfect maze first (one route to the cake). Every extra route is
+   * made by busting two walls around a corner of the true path, so the player
+   * can slip around the turn through one single cell. Every one of those cells
+   * is rigged with a trap, so all shortcuts are booby-trapped and exactly one
+   * route (the original one) is safe.
+   */
+  const DIRS = [
+    { key: 'n', dc: 0, dr: -1, opp: 's' },
+    { key: 'e', dc: 1, dr: 0, opp: 'w' },
+    { key: 's', dc: 0, dr: 1, opp: 'n' },
+    { key: 'w', dc: -1, dr: 0, opp: 'e' }
+  ];
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function generateMaze(width, height, numPaths, options) {
+    const opts = options || {};
+    const cols = Math.max(4, Math.floor(width) || 4);
+    const rows = Math.max(3, Math.floor(height) || 3);
+    const wantPaths = Math.max(0, Math.floor(numPaths) || 0);
+    const seed = (opts.seed === undefined ? 1 : opts.seed) >>> 0;
+    const rng = mulberry32(seed);
+
+    const cells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        cells.push({ c: c, r: r, n: true, e: true, s: true, w: true, seen: false, trap: false });
+      }
+    }
+
+    function at(c, r) {
+      if (c < 0 || r < 0 || c >= cols || r >= rows) return null;
+      return cells[r * cols + c];
+    }
+
+    const startCell = at(0, rows - 1);
+    const exitCell = at(cols - 1, 0);
+
+    // 1. perfect maze: iterative depth-first carve with a randomised neighbour pick
+    const stack = [startCell];
+    startCell.seen = true;
+    while (stack.length) {
+      const cur = stack[stack.length - 1];
+      const options2 = [];
+      for (const d of DIRS) {
+        const nb = at(cur.c + d.dc, cur.r + d.dr);
+        if (nb && !nb.seen) options2.push({ d: d, nb: nb });
+      }
+      if (!options2.length) {
+        stack.pop();
+        continue;
+      }
+      const pick = options2[Math.floor(rng() * options2.length)];
+      cur[pick.d.key] = false;
+      pick.nb[pick.d.opp] = false;
+      pick.nb.seen = true;
+      stack.push(pick.nb);
+    }
+
+    function openSides(cell) {
+      return DIRS.reduce((n, d) => n + (cell[d.key] ? 0 : 1), 0);
+    }
+
+    function knock(a, b) {
+      const dc = b.c - a.c;
+      const dr = b.r - a.r;
+      for (const d of DIRS) {
+        if (d.dc === dc && d.dr === dr) {
+          a[d.key] = false;
+          b[d.opp] = false;
+          return;
+        }
+      }
+    }
+
+    // 2. the true path
+    const prev = new Map();
+    prev.set(startCell, null);
+    const queue = [startCell];
+    for (let head = 0; head < queue.length; head++) {
+      const cur = queue[head];
+      if (cur === exitCell) break;
+      for (const d of DIRS) {
+        if (cur[d.key]) continue;
+        const nb = at(cur.c + d.dc, cur.r + d.dr);
+        if (!nb || prev.has(nb)) continue;
+        prev.set(nb, cur);
+        queue.push(nb);
+      }
+    }
+    const solution = [];
+    for (let cur = exitCell; cur; cur = prev.get(cur)) solution.push(cur);
+    solution.reverse();
+    const solutionSet = new Set(solution);
+
+    // 3. corner-cut shortcuts. A corner cell on the true path plus the diagonal
+    //    cell forms a two-wall shortcut; the diagonal cell becomes the trap.
+    const candidates = [];
+    const seenDetours = new Set();
+    for (let i = 2; i < solution.length - 2; i++) {
+      const before = solution[i - 1];
+      const corner = solution[i];
+      const after = solution[i + 1];
+      if (before.r === corner.r && corner.r === after.r) continue;
+      if (before.c === corner.c && corner.c === after.c) continue;
+      const detour = at(before.c + (after.c - corner.c), before.r + (after.r - corner.r));
+      if (!detour) continue;
+      if (solutionSet.has(detour) || detour === startCell || detour === exitCell) continue;
+      if (seenDetours.has(detour)) continue;
+      seenDetours.add(detour);
+      candidates.push({ i: i, detour: detour });
+    }
+
+    const traps = [];
+    const used = new Set();
+    function addShortcut(cand) {
+      if (traps.length >= wantPaths || !cand) return;
+      if (used.has(cand.detour)) return;
+      const before = solution[cand.i - 1];
+      const after = solution[cand.i + 1];
+      if (!before || !after) return;
+      knock(before, cand.detour);
+      knock(after, cand.detour);
+      cand.detour.trap = true;
+      used.add(cand.detour);
+      traps.push(cand.detour);
+    }
+
+    if (wantPaths > 0 && candidates.length) {
+      const spread = Math.min(wantPaths, candidates.length);
+      for (let k = 0; k < spread; k++) {
+        const idx = Math.min(candidates.length - 1, Math.floor(((k + 0.5) / spread) * candidates.length));
+        addShortcut(candidates[idx]);
+      }
+      for (const cand of candidates) addShortcut(cand);
+    }
+
+    // 4. fallback for small mazes with too few corners: bust one extra wall off a
+    //    dead end that is not on the true path, and rig that dead end. The loop
+    //    still passes through a trap, so the safe route is still unique.
+    if (wantPaths > 0 && traps.length < wantPaths) {
+      for (const cell of cells) {
+        if (traps.length >= wantPaths) break;
+        if (cell.trap || solutionSet.has(cell)) continue;
+        if (openSides(cell) !== 1) continue;
+        if (Math.abs(cell.c - startCell.c) + Math.abs(cell.r - startCell.r) < 2) continue;
+        const closed = [];
+        for (const d of DIRS) {
+          if (!cell[d.key]) continue;
+          const nb = at(cell.c + d.dc, cell.r + d.dr);
+          if (nb) closed.push(nb);
+        }
+        if (!closed.length) continue;
+        const nb = closed[Math.floor(rng() * closed.length)];
+        knock(cell, nb);
+        cell.trap = true;
+        traps.push(cell);
+      }
+    }
+
+    return {
+      width: cols,
+      height: rows,
+      cols: cols,
+      rows: rows,
+      seed: seed,
+      cells: cells,
+      at: at,
+      dirs: DIRS,
+      start: { c: 0, r: rows - 1 },
+      exit: { c: cols - 1, r: 0 },
+      startCell: startCell,
+      exitCell: exitCell,
+      solution: solution,
+      traps: traps,
+      extraPaths: traps.length,
+      openSides: openSides
+    };
+  }
+  /* MAZE_ALGO_END */
+
+  const LEVELS = [
+    { cols: 11, rows: 9, paths: 2, monsters: 0, bombs: 0, seed: 20261101, note: "Two shortcuts to the cake. Only one route isn't rigged." },
+    { cols: 13, rows: 10, paths: 2, monsters: 1, bombs: 0, seed: 20261102, note: 'Something on this paper is walking. Give it room.' },
+    { cols: 15, rows: 11, paths: 3, monsters: 1, bombs: 1, seed: 20261103, note: 'That round thing has a fuse. Do not stand near it.' },
+    { cols: 16, rows: 12, paths: 3, monsters: 2, bombs: 1, seed: 20261104, note: 'More monsters, more shortcuts, still one honest path.' },
+    { cols: 18, rows: 13, paths: 4, monsters: 2, bombs: 2, seed: 20261105, note: 'Two bombs now. Keep moving, birthday legend.' },
+    { cols: 20, rows: 15, paths: 4, monsters: 3, bombs: 2, seed: 20261106, note: 'The paper is getting crowded.' },
+    { cols: 22, rows: 16, paths: 5, monsters: 3, bombs: 3, seed: 20261107, note: 'Bigger maze, meaner neighbours.' },
+    { cols: 24, rows: 18, paths: 5, monsters: 4, bombs: 3, seed: 20261108, note: 'Three fuses. Time your run.' },
+    { cols: 26, rows: 19, paths: 6, monsters: 4, bombs: 4, seed: 20261109, note: 'Almost there. Do not rush the fuse.' },
+    { cols: 28, rows: 20, paths: 6, monsters: 5, bombs: 4, seed: 20261110, note: 'The last maze. Everything at once.' }
+  ];
+
+  const QUESTIONS = [
+    { q: 'How do you print something to the console in JavaScript?', a: ['console.log("hi")', 'print("hi")', 'echo "hi"', 'System.out.println("hi")'], c: 0 },
+    { q: "Which keyword makes a JavaScript variable that can't be reassigned?", a: ['let', 'var', 'const', 'static'], c: 2 },
+    { q: 'What does HTML stand for?', a: ['HyperText Markup Language', 'High Tech Modern Language', 'Hyperlink Text Machine Logic', 'Home Tool Markup Language'], c: 0 },
+    { q: 'What is CSS mainly used for?', a: ['Storing data', 'Styling how a page looks', 'Running servers', 'Compressing images'], c: 1 },
+    { q: 'Which data structure is first in, first out?', a: ['Stack', 'Queue', 'Tree', 'Hash map'], c: 1 },
+    { q: 'In JavaScript, what does === compare?', a: ['Only the value', 'Only the type', 'Value and type', 'Memory address'], c: 2 },
+    { q: 'What does API stand for?', a: ['Application Programming Interface', 'Applied Program Internet', 'Automatic Process Input', 'App Package Index'], c: 0 },
+    { q: 'What is the time complexity of binary search?', a: ['O(1)', 'O(n)', 'O(log n)', 'O(n squared)'], c: 2 },
+    { q: 'Which array method makes a new array by transforming every element?', a: ['forEach', 'map', 'filter', 'find'], c: 1 },
+    { q: 'What is a git commit?', a: ['A saved snapshot of your changes', 'A deleted branch', 'A type of merge conflict', 'A remote server'], c: 0 },
+    { q: 'What does a 404 status code mean?', a: ['Server error', 'Not found', 'Unauthorized', 'Redirect'], c: 1 },
+    { q: 'What does JSON stand for?', a: ['JavaScript Object Notation', 'Java Standard Object Names', 'Joined Serial Object Nodes', 'Just Some Other Notation'], c: 0 },
+    { q: 'Which CSS selector targets a class named card?', a: ['.card', '#card', 'card', '*card'], c: 0 },
+    { q: 'What is a boolean?', a: ['A number with decimals', 'A true or false value', 'A list of items', 'A loop'], c: 1 },
+    { q: 'What does NaN mean in JavaScript?', a: ['Not a Number', 'Null and None', 'New array Node', 'Negative and Null'], c: 0 },
+    { q: 'Which of these is a version control system?', a: ['npm', 'git', 'webpack', 'docker'], c: 1 },
+    { q: 'What does a for loop do?', a: ['Defines a function', 'Repeats code', 'Declares a class', 'Imports a file'], c: 1 },
+    { q: 'In the browser, what does the DOM represent?', a: ['The page as a tree of elements', 'A database table', 'A network request', 'A CSS animation'], c: 0 },
+    { q: 'What is debugging?', a: ['Writing new features', 'Finding and fixing errors', 'Deleting old code', 'Renaming variables'], c: 1 },
+    { q: 'What does npm install do?', a: ['Deletes node_modules', 'Downloads project dependencies', 'Runs the test suite', 'Publishes your package'], c: 1 }
+  ];
+
+  const STEP_TIME = 0.12;
+  const MONSTER_STEP = 0.52;
+  const TRAP_LINES = [
+    "I bet you didn't see that coming!",
+    'Wrong way, birthday legend.',
+    'Ooh, so close. Not really.',
+    'That path was a lie. Sorry!',
+    'Ha! You actually fell for that one?',
+    'Trap! Back to the start with you.'
+  ];
+  const MONSTER_LINES = [
+    'A paper monster got you!',
+    'You have been nibbled.',
+    'That monster was drawn to you.',
+    'Paper cut. Very rude.'
+  ];
+  const BOMB_LINES = [
+    'Boom. That was a bomb.',
+    'You stood next to a bomb. Bold.',
+    'Ka-pow. Start again.',
+    'That fuse was shorter than it looked.'
+  ];
+
+  const cardScreen = document.getElementById('card-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const winScreen = document.getElementById('win-screen');
+  const openCard = document.getElementById('open-card');
+  const stage = document.getElementById('stage');
+  const canvas = document.getElementById('maze');
+  const ctx = canvas.getContext('2d');
+  const toast = document.getElementById('toast');
+  const toastMain = document.getElementById('toast-main');
+  const toastSub = document.getElementById('toast-sub');
+  const quizEl = document.getElementById('quiz');
+  const quizQ = document.getElementById('quiz-q');
+  const quizOptions = document.getElementById('quiz-options');
+  const quizFeedback = document.getElementById('quiz-feedback');
+  const quizClose = document.getElementById('quiz-close');
+  const quizSkip = document.getElementById('quiz-skip');
+  const quizBtn = document.getElementById('quiz-btn');
+  const levelKicker = document.getElementById('level-kicker');
+  const levelStats = document.getElementById('level-stats');
+  const levelNote = document.getElementById('level-note');
+  const winKicker = document.getElementById('win-kicker');
+  const winMsg = document.getElementById('win-msg');
+  const winSmall = document.getElementById('win-small');
+  const nextLevelBtn = document.getElementById('next-level');
+  const confetti = document.getElementById('confetti');
+
+  let state = 'card';
+  let opening = false;
+  let levelIndex = 0;
+  let cfg = LEVELS[0];
+  let maze = null;
+  let CELL = 30;
+  let PAD = 26;
+  let LOGICAL_W = 800;
+  let LOGICAL_H = 620;
+
+  let monsters = [];
+  let bombs = [];
+  let scorches = [];
+  let splats = 0;
+  let levelStartedAt = 0;
+  let hitToken = 0;
+  let trapLineUsed = false;
+  let graceUntil = 0;
+  let quizUsed = false;
+  let quizDeck = [];
+  let currentQuestion = null;
+  let answering = false;
+
+  const revealed = new Set();
+  const player = { c: 0, r: 0, moving: false, dir: null, t: 0, phase: 0 };
+  const held = [];
+  let pressPoint = null;
+
+  /* ---------- level setup ---------- */
+
+  function loadLevel(index) {
+    levelIndex = index;
+    cfg = LEVELS[index];
+    maze = generateMaze(cfg.cols, cfg.rows, cfg.paths, { seed: cfg.seed });
+
+    CELL = Math.max(24, Math.min(40, Math.round(760 / Math.max(cfg.cols, cfg.rows))));
+    PAD = 26;
+    LOGICAL_W = maze.cols * CELL + PAD * 2;
+    LOGICAL_H = maze.rows * CELL + PAD * 2;
+    stage.style.aspectRatio = LOGICAL_W + ' / ' + LOGICAL_H;
+    stage.style.setProperty('--stage-ratio', (LOGICAL_W / LOGICAL_H).toFixed(4));
+
+    revealed.clear();
+    scorches = [];
+    splats = 0;
+    hitToken += 1;
+    graceUntil = 0;
+    quizUsed = false;
+    currentQuestion = null;
+    answering = false;
+    quizEl.hidden = true;
+    quizBtn.disabled = false;
+    quizBtn.textContent = 'answer a question → skip to the cake';
+    toast.classList.remove('show');
+    toast.classList.remove('good');
+    stage.classList.remove('shake');
+    held.length = 0;
+    pressPoint = null;
+
+    buildStatic();
+    respawnHazards();
+    resetPlayer();
+    updateHud();
+    resizeCanvas();
+  }
+
+  function respawnHazards() {
+    bomblistReset();
+    spawnBombs(cfg.bombs);
+    spawnMonsters(cfg.monsters);
+  }
+
+  function bomblistReset() {
+    bombs = [];
+    scorches = [];
+  }
+
+  function spawnBombs(count) {
+    const rng = mulberry32((maze.seed ^ 0x51ed270b) >>> 0);
+    const banned = new Set([maze.startCell, maze.exitCell]);
+    for (const t of maze.traps) banned.add(t);
+    let guard = 0;
+    while (bombs.length < count && guard++ < 600) {
+      const cell = maze.cells[Math.floor(rng() * maze.cells.length)];
+      if (banned.has(cell)) continue;
+      if (Math.abs(cell.c - maze.start.c) + Math.abs(cell.r - maze.start.r) < 4) continue;
+      if (bombs.some((b) => b.c === cell.c && b.r === cell.r)) continue;
+      const fuse = 4.5 + rng() * 4.5;
+      bombs.push({
+        c: cell.c,
+        r: cell.r,
+        fuse: fuse,
+        total: fuse,
+        dud: rng() < 0.2,
+        state: 'idle',
+        t: 0,
+        blast: null,
+        scorched: false
+      });
+    }
+  }
+
+  function spawnMonsters(count) {
+    const rng = mulberry32((maze.seed ^ 0x9e3779b9) >>> 0);
+    const banned = new Set([maze.startCell, maze.exitCell]);
+    for (const t of maze.traps) banned.add(t);
+    for (const b of bombs) banned.add(maze.at(b.c, b.r));
+    monsters = [];
+    let guard = 0;
+    while (monsters.length < count && guard++ < 800) {
+      const cell = maze.cells[Math.floor(rng() * maze.cells.length)];
+      if (banned.has(cell)) continue;
+      if (Math.abs(cell.c - maze.start.c) + Math.abs(cell.r - maze.start.r) < 4) continue;
+      if (Math.abs(cell.c - maze.exit.c) + Math.abs(cell.r - maze.exit.r) < 2) continue;
+      if (monsters.some((m) => m.c === cell.c && m.r === cell.r)) continue;
+      if (!openDirs(cell).length) continue;
+      monsters.push({
+        c: cell.c,
+        r: cell.r,
+        dir: openDirs(cell)[Math.floor(rng() * openDirs(cell).length)],
+        moving: false,
+        t: 0,
+        wait: 0.5 + rng() * 1.6,
+        phase: rng() * 6.28
+      });
+    }
+  }
+
+  function updateHud() {
+    levelKicker.textContent = 'level ' + (levelIndex + 1) + ' of ' + LEVELS.length;
+    const trapCount = maze.traps.length;
+    const parts = [trapCount + ' rigged shortcut' + (trapCount === 1 ? '' : 's')];
+    if (cfg.monsters) parts.push(cfg.monsters + ' monster' + (cfg.monsters === 1 ? '' : 's'));
+    if (cfg.bombs) parts.push(cfg.bombs + ' bomb' + (cfg.bombs === 1 ? '' : 's'));
+    levelStats.innerHTML = parts.join(' · ') + ' · <b>' + splats + '</b> hits';
+    levelNote.textContent = cfg.note;
+  }
+
+  function resetPlayer() {
+    player.c = maze.start.c;
+    player.r = maze.start.r;
+    player.moving = false;
+    player.t = 0;
+    player.phase = 0;
+    player.dir = null;
+    held.length = 0;
+    pressPoint = null;
+  }
+
+  /* ---------- helpers ---------- */
+
+  function center(cell) {
+    return {
+      x: PAD + cell.c * CELL + CELL / 2,
+      y: PAD + cell.r * CELL + CELL / 2
+    };
+  }
+
+  function openDirs(cell) {
+    if (!cell) return [];
+    return maze.dirs.filter((d) => !cell[d.key]);
+  }
+
+  function spriteScale() {
+    return CELL / 30;
+  }
+
+  /* ---------- hand-drawn strokes ---------- */
+
+  function sketchStroke(g, x1, y1, x2, y2, opts) {
+    const color = opts.color;
+    const width = opts.width === undefined ? 4 : opts.width;
+    const alpha = opts.alpha === undefined ? 0.6 : opts.alpha;
+    const wobble = opts.wobble === undefined ? 1.6 : opts.wobble;
+    const passes = opts.passes === undefined ? 2 : opts.passes;
+    const rng = opts.rng;
+
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+    const ux = (x2 - x1) / len;
+    const uy = (y2 - y1) / len;
+    const nx = -uy;
+    const ny = ux;
+
+    for (let p = 0; p < passes; p++) {
+      const steps = Math.max(2, Math.round(len / 16));
+      const startOff = (rng() - 0.5) * wobble * 2;
+      const endOff = (rng() - 0.5) * wobble * 2;
+      const pts = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const edge = i === 0 || i === steps;
+        const along = edge ? 0 : (rng() - 0.5) * wobble * 0.8;
+        const perp = startOff * (1 - t) + endOff * t + (edge ? 0 : (rng() - 0.5) * wobble);
+        pts.push([
+          x1 + ux * (len * t + along) + nx * perp,
+          y1 + uy * (len * t + along) + ny * perp
+        ]);
+      }
+
+      g.beginPath();
+      g.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+        const my = (pts[i][1] + pts[i + 1][1]) / 2;
+        g.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      g.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      g.lineWidth = width * (0.72 + rng() * 0.55);
+      g.strokeStyle = color;
+      g.globalAlpha = alpha * (0.65 + rng() * 0.45);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  /* ---------- static layer: paper + walls ---------- */
+
+  let staticLayer = document.createElement('canvas');
+  let sctx = null;
+
+  function buildPaper(g) {
+    const rng = mulberry32((maze.seed ^ 0x51ed270b) >>> 0);
+    g.fillStyle = '#fffcef';
+    g.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+    const glow = g.createRadialGradient(
+      LOGICAL_W * 0.62, LOGICAL_H * 0.28, 30,
+      LOGICAL_W * 0.5, LOGICAL_H * 0.5, LOGICAL_W * 0.72
+    );
+    glow.addColorStop(0, 'rgba(255, 244, 190, 0.55)');
+    glow.addColorStop(0.55, 'rgba(255, 251, 226, 0.22)');
+    glow.addColorStop(1, 'rgba(231, 240, 203, 0.34)');
+    g.fillStyle = glow;
+    g.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+    const speckles = Math.round((LOGICAL_W * LOGICAL_H) / 420);
+    for (let i = 0; i < speckles; i++) {
+      const x = rng() * LOGICAL_W;
+      const y = rng() * LOGICAL_H;
+      const r = rng() * 1.3 + 0.2;
+      const roll = rng();
+      g.fillStyle = roll < 0.45 ? 'rgba(47, 143, 90, 0.10)'
+        : roll < 0.85 ? 'rgba(214, 176, 60, 0.13)'
+        : 'rgba(120, 120, 90, 0.09)';
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  function buildScribbles(g) {
+    const rng = mulberry32((maze.seed ^ 0x68e31da4) >>> 0);
+    for (const cell of maze.cells) {
+      if (rng() > 0.24) continue;
+      const p = center(cell);
+      g.save();
+      g.translate(p.x, p.y);
+      g.strokeStyle = rng() < 0.6 ? 'rgba(242, 201, 76, 0.30)' : 'rgba(47, 143, 90, 0.16)';
+      g.lineWidth = 2;
+      g.lineCap = 'round';
+      const count = 3 + Math.floor(rng() * 3);
+      for (let i = 0; i < count; i++) {
+        const angle = rng() * Math.PI * 2;
+        const len = 4 + rng() * 8;
+        const cx = (rng() - 0.5) * CELL * 0.5;
+        const cy = (rng() - 0.5) * CELL * 0.5;
+        g.beginPath();
+        g.moveTo(cx, cy);
+        g.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+        g.stroke();
+      }
+      g.restore();
+    }
+  }
+
+  function wallSegments() {
+    const segs = [];
+    for (const cell of maze.cells) {
+      const x = PAD + cell.c * CELL;
+      const y = PAD + cell.r * CELL;
+      if (cell.n) segs.push([x, y, x + CELL, y]);
+      if (cell.w) segs.push([x, y, x, y + CELL]);
+      if (cell.c === maze.cols - 1 && cell.e) segs.push([x + CELL, y, x + CELL, y + CELL]);
+      if (cell.r === maze.rows - 1 && cell.s) segs.push([x, y + CELL, x + CELL, y + CELL]);
+    }
+    return segs;
+  }
+
+  function buildWalls(g) {
+    const rng = mulberry32((maze.seed ^ 0x9e3779b9) >>> 0);
+    const ws = Math.max(0.6, CELL / 30);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+
+    for (const seg of wallSegments()) {
+      // yellow pencil shadow, nudged a little
+      sketchStroke(g, seg[0] + 1.5, seg[1] + 2, seg[2] + 1.5, seg[3] + 2, {
+        color: '#f2c94c', width: 6 * ws, alpha: 0.3, wobble: 1.7, passes: 1, rng: rng
+      });
+      // green crayon body
+      sketchStroke(g, seg[0], seg[1], seg[2], seg[3], {
+        color: '#2f8f5a', width: 4.6 * ws, alpha: 0.5, wobble: 1.5, passes: 2, rng: rng
+      });
+      // dark ink core
+      sketchStroke(g, seg[0], seg[1], seg[2], seg[3], {
+        color: '#1f6b42', width: 1.6 * ws, alpha: 0.32, wobble: 1, passes: 1, rng: rng
+      });
+    }
+
+    // wobbly outer border
+    const bx1 = PAD - 13;
+    const by1 = PAD - 13;
+    const bx2 = LOGICAL_W - PAD + 13;
+    const by2 = LOGICAL_H - PAD + 13;
+    const border = [[bx1, by1, bx2, by1], [bx2, by1, bx2, by2], [bx2, by2, bx1, by2], [bx1, by2, bx1, by1]];
+    for (const seg of border) {
+      sketchStroke(g, seg[0], seg[1], seg[2], seg[3], {
+        color: '#2f8f5a', width: 2.2 * ws, alpha: 0.32, wobble: 1.8, passes: 1, rng: rng
+      });
+    }
+
+    const label = Math.max(10, Math.round(CELL * 0.36));
+    g.fillStyle = 'rgba(31, 107, 66, 0.66)';
+    g.font = 'italic ' + label + 'px "Patrick Hand", "Comic Sans MS", "Segoe Print", cursive';
+    g.textAlign = 'center';
+    g.fillText('start', PAD + CELL / 2, LOGICAL_H - Math.round(PAD * 0.6));
+    g.fillText('cake', LOGICAL_W - PAD - CELL / 2, Math.round(PAD * 0.85));
+  }
+
+  function buildStatic() {
+    staticLayer = document.createElement('canvas');
+    staticLayer.width = Math.max(1, LOGICAL_W * 3);
+    staticLayer.height = Math.max(1, LOGICAL_H * 3);
+    sctx = staticLayer.getContext('2d');
+    sctx.setTransform(3, 0, 0, 3, 0, 0);
+    buildPaper(sctx);
+    buildScribbles(sctx);
+    buildWalls(sctx);
+  }
+
+  /* ---------- dynamic drawing ---------- */
+
+  function drawCake(g, time) {
+    const p = center(maze.exitCell);
+    const bob = Math.sin(time * 2.2) * 1.2;
+    const s = spriteScale() * 0.92;
+    g.save();
+    g.translate(p.x, p.y + 3 + bob);
+    g.scale(s, s);
+
+    g.fillStyle = 'rgba(31, 107, 66, 0.14)';
+    g.beginPath();
+    g.ellipse(0, 9, 13, 4, 0, 0, Math.PI * 2);
+    g.fill();
+
+    g.strokeStyle = '#1f6b42';
+    g.lineWidth = 1.6;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(-13, 8.5);
+    g.lineTo(13, 8.5);
+    g.stroke();
+
+    roundRect(g, -11, -3, 22, 11.5, 3);
+    g.fillStyle = '#ffe08a';
+    g.fill();
+    g.strokeStyle = '#b08a20';
+    g.lineWidth = 1.5;
+    g.stroke();
+
+    g.strokeStyle = '#2f8f5a';
+    g.lineWidth = 2.4;
+    g.beginPath();
+    g.moveTo(-11, -3);
+    for (let i = 0; i < 4; i++) {
+      const x0 = -11 + i * 5.5;
+      g.quadraticCurveTo(x0 + 2.75, 0.6, x0 + 5.5, -3);
+    }
+    g.stroke();
+
+    g.strokeStyle = '#d92b2b';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(0, -3);
+    g.lineTo(0, -11);
+    g.stroke();
+
+    const flick = Math.sin(time * 9) * 0.7;
+    g.beginPath();
+    g.ellipse(0, -13.5 + flick * 0.4, 1.7, 3.1, 0, 0, Math.PI * 2);
+    g.fillStyle = '#f2a13c';
+    g.fill();
+    g.beginPath();
+    g.ellipse(0, -13 + flick * 0.4, 0.8, 1.5, 0, 0, Math.PI * 2);
+    g.fillStyle = '#fff3bf';
+    g.fill();
+    g.restore();
+  }
+
+  function drawTrapMark(g, cell) {
+    const p = center(cell);
+    const s = spriteScale();
+    g.save();
+    g.translate(p.x, p.y);
+    g.strokeStyle = 'rgba(217, 43, 43, 0.92)';
+    g.lineWidth = 3.4 * s;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(-7 * s, -7 * s);
+    g.lineTo(6 * s, 6 * s);
+    g.moveTo(6 * s, -7 * s);
+    g.lineTo(-7 * s, 6 * s);
+    g.stroke();
+
+    g.fillStyle = 'rgba(217, 43, 43, 0.78)';
+    const dots = [[9, -8, 1.6], [-9, 7, 1.3], [9, 8, 1.1], [-8, -9, 1.2]];
+    for (const d of dots) {
+      g.beginPath();
+      g.arc(d[0] * s, d[1] * s, d[2] * s, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+
+  function playerPixel() {
+    const a = center(player);
+    if (!player.moving || !player.dir) return a;
+    const b = center({ c: player.c + player.dir.dc, r: player.r + player.dir.dr });
+    const t = player.t;
+    const e = t * t * (3 - 2 * t);
+    return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e };
+  }
+
+  function drawMan(g, time) {
+    const p = playerPixel();
+    const walking = player.moving;
+    const swing = walking ? Math.sin(player.phase) : 0;
+    const bob = walking ? Math.abs(Math.sin(player.phase)) * 1.1 : Math.sin(time * 2) * 0.5;
+
+    g.save();
+    g.translate(p.x, p.y + 2 - bob);
+    g.scale(spriteScale() * 0.78, spriteScale() * 0.78);
+
+    g.fillStyle = 'rgba(47, 143, 90, 0.16)';
+    g.beginPath();
+    g.ellipse(0, 13, 8, 3, 0, 0, Math.PI * 2);
+    g.fill();
+
+    g.strokeStyle = '#22402c';
+    g.lineWidth = 2.1;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+
+    g.beginPath();
+    g.moveTo(0, 4);
+    g.lineTo(-3.2, 11 + swing * 2.4);
+    g.moveTo(0, 4);
+    g.lineTo(3.2, 11 - swing * 2.4);
+    g.stroke();
+
+    g.beginPath();
+    g.moveTo(0, -2);
+    g.lineTo(0, 4.5);
+    g.stroke();
+
+    g.beginPath();
+    g.moveTo(0, -0.5);
+    g.lineTo(-4.6, 3.2 - swing * 2);
+    g.moveTo(0, -0.5);
+    g.lineTo(4.6, 3.2 + swing * 2);
+    g.stroke();
+
+    g.beginPath();
+    g.arc(0, -6.4, 4.4, 0, Math.PI * 2);
+    g.fillStyle = '#fffcef';
+    g.fill();
+    g.stroke();
+
+    g.fillStyle = '#22402c';
+    g.beginPath();
+    g.arc(-1.5, -7, 0.8, 0, Math.PI * 2);
+    g.arc(1.5, -7, 0.8, 0, Math.PI * 2);
+    g.fill();
+
+    g.beginPath();
+    g.arc(0, -5.7, 1.9, 0.25, Math.PI - 0.25);
+    g.stroke();
+    g.restore();
+  }
+
+  function monsterPixel(m) {
+    const a = center(m);
+    if (!m.moving) return a;
+    const b = center({ c: m.c + m.dir.dc, r: m.r + m.dir.dr });
+    const t = Math.min(1, m.t);
+    const e = t * t * (3 - 2 * t);
+    return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e };
+  }
+
+  function drawMonster(g, m, time) {
+    const p = monsterPixel(m);
+    const s = spriteScale() * 0.82;
+    const wob = Math.sin(time * 7 + m.phase) * 0.14;
+    g.save();
+    g.translate(p.x, p.y);
+    g.rotate(wob);
+
+    g.fillStyle = 'rgba(31, 107, 66, 0.15)';
+    g.beginPath();
+    g.ellipse(0, 12, 10, 3.4, 0, 0, Math.PI * 2);
+    g.fill();
+
+    // folded paper body
+    g.beginPath();
+    g.moveTo(-10, 8);
+    g.lineTo(-8, -6);
+    g.lineTo(0, -11);
+    g.lineTo(8, -6);
+    g.lineTo(10, 8);
+    g.closePath();
+    g.fillStyle = '#f2a08f';
+    g.fill();
+    g.strokeStyle = '#a83b2c';
+    g.lineWidth = 1.6;
+    g.lineJoin = 'round';
+    g.stroke();
+
+    // paper crease
+    g.beginPath();
+    g.moveTo(-2, -10);
+    g.lineTo(-1, 8);
+    g.strokeStyle = 'rgba(168, 59, 44, 0.45)';
+    g.lineWidth = 1;
+    g.stroke();
+
+    // eyes
+    g.fillStyle = '#3a1410';
+    g.beginPath();
+    g.arc(-3.6, -2, 2.2, 0, Math.PI * 2);
+    g.arc(3.6, -2, 2.2, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#fffcef';
+    g.beginPath();
+    g.arc(-2.9, -2.7, 0.9, 0, Math.PI * 2);
+    g.arc(4.3, -2.7, 0.9, 0, Math.PI * 2);
+    g.fill();
+
+    // zigzag mouth
+    g.beginPath();
+    g.moveTo(-5.4, 3);
+    for (let i = 0; i < 5; i++) {
+      g.lineTo(-5.4 + (i + 1) * 2.16, i % 2 === 0 ? 5.4 : 3);
+    }
+    g.strokeStyle = '#3a1410';
+    g.lineWidth = 1.4;
+    g.stroke();
+
+    // little paper horns
+    g.beginPath();
+    g.moveTo(-8, -6);
+    g.lineTo(-10.5, -11);
+    g.lineTo(-4, -9);
+    g.moveTo(8, -6);
+    g.lineTo(10.5, -11);
+    g.lineTo(4, -9);
+    g.strokeStyle = '#a83b2c';
+    g.lineWidth = 1.4;
+    g.stroke();
+
+    g.restore();
+  }
+
+  function drawScorch(g, cell) {
+    const p = center(cell);
+    const s = spriteScale();
+    g.save();
+    g.translate(p.x, p.y);
+    g.strokeStyle = 'rgba(62, 52, 38, 0.32)';
+    g.lineWidth = 2;
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + 0.4;
+      const r = (5 + (i % 3) * 3) * s;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * 3 * s, Math.sin(a) * 3 * s);
+      g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(62, 52, 38, 0.16)';
+    g.beginPath();
+    g.arc(0, 0, 7 * s, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+
+  function drawBomb(g, b, time) {
+    if (b.state === 'gone') return;
+    const p = center({ c: b.c, r: b.r });
+    const s = spriteScale();
+
+    if (b.state === 'boom') {
+      const t = Math.min(1, b.t / 0.6);
+      g.save();
+      g.translate(p.x, p.y);
+      g.globalAlpha = Math.max(0, 1 - t * 0.9);
+      const r = CELL * (0.4 + t * 0.95);
+      g.fillStyle = 'rgba(255, 233, 163, 0.6)';
+      g.beginPath();
+      g.arc(0, 0, r * 0.62, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#d92b2b';
+      g.lineWidth = 3;
+      g.beginPath();
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const rr = r * (i % 2 ? 0.6 : 1);
+        const x = Math.cos(a) * rr;
+        const y = Math.sin(a) * rr;
+        if (i) g.lineTo(x, y); else g.moveTo(x, y);
+      }
+      g.closePath();
+      g.stroke();
+      g.restore();
+      return;
+    }
+
+    if (b.state === 'dud') {
+      const t = Math.min(1, b.t / 0.9);
+      g.save();
+      g.translate(p.x, p.y);
+      g.globalAlpha = 1 - t;
+      g.strokeStyle = 'rgba(90, 90, 80, 0.5)';
+      g.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        g.beginPath();
+        g.arc((i - 1) * 4 * s, -4 * s - t * 10 * s, (4 + i * 2) * s, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+      return;
+    }
+
+    const urgency = Math.max(0, 1 - b.fuse / 2.4);
+    const pulse = 1 + Math.sin(time * (7 + urgency * 20)) * 0.06 * urgency;
+
+    g.save();
+    g.translate(p.x, p.y);
+
+    g.fillStyle = 'rgba(31, 107, 66, 0.15)';
+    g.beginPath();
+    g.ellipse(0, 9 * s, 8 * s, 2.6 * s, 0, 0, Math.PI * 2);
+    g.fill();
+
+    // fuse timer ring
+    g.strokeStyle = urgency > 0.45 ? 'rgba(217, 43, 43, 0.75)' : 'rgba(217, 43, 43, 0.32)';
+    g.lineWidth = 1.8 * s;
+    g.beginPath();
+    g.arc(0, 0, 10.5 * s, -Math.PI / 2, -Math.PI / 2 + Math.max(0.02, b.fuse / b.total) * Math.PI * 2);
+    g.stroke();
+
+    // paper bomb body
+    g.beginPath();
+    g.arc(0, 0, 7.2 * s * pulse, 0, Math.PI * 2);
+    g.fillStyle = '#4a4a42';
+    g.fill();
+    g.strokeStyle = '#2b2b25';
+    g.lineWidth = 1.4 * s;
+    g.stroke();
+
+    g.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    g.beginPath();
+    g.arc(-2.4 * s, -2.4 * s, 1.9 * s, 0, Math.PI * 2);
+    g.fill();
+
+    // fuse
+    g.beginPath();
+    g.moveTo(4 * s, -6 * s);
+    g.quadraticCurveTo(9 * s, -11 * s, 7 * s, -14 * s);
+    g.strokeStyle = '#8a6a2a';
+    g.lineWidth = 1.8 * s;
+    g.stroke();
+
+    // spark
+    const sparkR = 1.8 * s + Math.sin(time * 22) * 0.5 * s;
+    g.fillStyle = urgency > 0.4 ? '#d92b2b' : '#f2a13c';
+    g.beginPath();
+    g.arc(7 * s, -14 * s, sparkR, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#fff3bf';
+    g.beginPath();
+    g.arc(7 * s, -14 * s, sparkR * 0.45, 0, Math.PI * 2);
+    g.fill();
+
+    g.restore();
+  }
+
+  /* ---------- canvas sizing + loop ---------- */
+
+  function resizeCanvas() {
+    const rect = stage.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(resizeCanvas).observe(stage);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function draw(time) {
+    if (!maze || canvas.width < 8) return;
+    const sx = canvas.width / LOGICAL_W;
+    const sy = canvas.height / LOGICAL_H;
+    ctx.setTransform(sx, 0, 0, sy, 0, 0);
+    ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
+    ctx.drawImage(staticLayer, 0, 0, LOGICAL_W, LOGICAL_H);
+
+    drawCake(ctx, time);
+
+    for (const s of scorches) drawScorch(ctx, s);
+    for (const b of bombs) drawBomb(ctx, b, time);
+    for (const m of monsters) drawMonster(ctx, m, time);
+    for (const cell of revealed) drawTrapMark(ctx, cell);
+    drawMan(ctx, time);
+  }
+
+  /* ---------- game state ---------- */
+
+  function tryStep(key) {
+    const cell = maze.at(player.c, player.r);
+    if (!cell || cell[key]) return false;
+    const dir = maze.dirs.find((d) => d.key === key);
+    if (!dir) return false;
+    player.dir = dir;
+    player.moving = true;
+    player.t = 0;
+    return true;
+  }
+
+  function wantedStep() {
+    const keys = [];
+    if (pressPoint) {
+      const d = dirFromPoint(pressPoint.x, pressPoint.y);
+      if (d) keys.push(d);
+    }
+    for (let i = held.length - 1; i >= 0; i--) {
+      if (keys.indexOf(held[i]) < 0) keys.push(held[i]);
+    }
+    for (const k of keys) {
+      if (tryStep(k)) return true;
+    }
+    return false;
+  }
+
+  function update(dt) {
+    if (state !== 'playing' || !maze) return;
+
+    if (!player.moving) wantedStep();
+
+    if (player.moving) {
+      player.phase += dt * 16;
+      player.t += dt / STEP_TIME;
+      if (player.t >= 1) {
+        player.c += player.dir.dc;
+        player.r += player.dir.dr;
+        player.t = 0;
+        player.moving = false;
+        onEnterCell(maze.at(player.c, player.r));
+      }
+    } else {
+      player.phase *= 0.85;
+    }
+
+    if (state !== 'playing') return;
+
+    updateMonsters(dt);
+    updateBombs(dt);
+    if (state !== 'playing') return;
+    checkMonsters();
+    if (state !== 'playing') return;
+    checkBlasts();
+  }
+
+  function chooseMonsterDir(m) {
+    const cell = maze.at(m.c, m.r);
+    if (!cell) return;
+    const open = openDirs(cell);
+    const safe = open.filter((d) => {
+      const c = m.c + d.dc;
+      const r = m.r + d.dr;
+      return !(c === maze.start.c && r === maze.start.r) && !(c === maze.exit.c && r === maze.exit.r);
+    });
+    const forward = safe.filter((d) => d.key !== (m.dir ? m.dir.opp : ''));
+    const pool = forward.length ? forward : (safe.length ? safe : open);
+    if (!pool.length) return;
+    m.dir = pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function updateMonsters(dt) {
+    for (const m of monsters) {
+      if (m.wait > 0) {
+        m.wait -= dt;
+        continue;
+      }
+      if (!m.moving) {
+        chooseMonsterDir(m);
+        m.moving = true;
+        m.t = 0;
+      }
+      m.t += dt / MONSTER_STEP;
+      m.phase += dt * 8;
+      if (m.t >= 1) {
+        m.t = 0;
+        m.c += m.dir.dc;
+        m.r += m.dir.dr;
+        m.moving = false;
+        m.wait = 0.05 + Math.random() * 0.2;
+      }
+    }
+  }
+
+  function checkMonsters() {
+    if (performance.now() < graceUntil) return;
+    const pp = playerPixel();
+    for (const m of monsters) {
+      const mp = monsterPixel(m);
+      if (Math.hypot(pp.x - mp.x, pp.y - mp.y) < CELL * 0.58) {
+        hit('monster');
+        return;
+      }
+    }
+  }
+
+  function blastCells(b) {
+    const cell = maze.at(b.c, b.r);
+    const list = [cell];
+    for (const d of openDirs(cell)) {
+      const nb = maze.at(b.c + d.dc, b.r + d.dr);
+      if (nb) list.push(nb);
+    }
+    return list;
+  }
+
+  function updateBombs(dt) {
+    for (const b of bombs) {
+      if (b.state === 'idle') {
+        b.fuse -= dt;
+        if (b.fuse <= 0) {
+          if (b.dud) {
+            b.state = 'dud';
+            b.t = 0;
+          } else {
+            b.state = 'boom';
+            b.t = 0;
+            b.blast = blastCells(b);
+          }
+        }
+      } else {
+        b.t += dt;
+        if (b.state === 'boom' && b.t > 0.55 && !b.scorched) {
+          b.scorched = true;
+          scorches.push({ c: b.c, r: b.r });
+        }
+        if (b.t > 1) b.state = 'gone';
+      }
+    }
+  }
+
+  function checkBlasts() {
+    if (performance.now() < graceUntil) return;
+    for (const b of bombs) {
+      if (b.state !== 'boom' || b.t > 0.45 || !b.blast) continue;
+      const cur = maze.at(player.c, player.r);
+      const next = player.moving ? maze.at(player.c + player.dir.dc, player.r + player.dir.dr) : null;
+      if (b.blast.indexOf(cur) >= 0 || (next && b.blast.indexOf(next) >= 0)) {
+        hit('bomb');
+        return;
+      }
+    }
+  }
+
+  function onEnterCell(cell) {
+    if (!cell) return;
+    if (cell.trap) {
+      revealed.add(cell);
+      hit('trap');
+      return;
+    }
+    if (cell === maze.exitCell) win();
+  }
+
+  function hit(kind) {
+    if (state !== 'playing') return;
+    state = 'hit';
+    held.length = 0;
+    pressPoint = null;
+    splats += 1;
+    toast.classList.remove('good');
+    toastSub.textContent = 'back to the start you go';
+    updateHud();
+
+    if (kind === 'trap') {
+      toastMain.textContent = trapLineUsed
+        ? TRAP_LINES[1 + Math.floor(Math.random() * (TRAP_LINES.length - 1))]
+        : TRAP_LINES[0];
+      trapLineUsed = true;
+    } else if (kind === 'monster') {
+      toastMain.textContent = MONSTER_LINES[Math.floor(Math.random() * MONSTER_LINES.length)];
+    } else {
+      toastMain.textContent = BOMB_LINES[Math.floor(Math.random() * BOMB_LINES.length)];
+    }
+
+    toast.classList.add('show');
+    stage.classList.add('shake');
+
+    const token = ++hitToken;
+    window.setTimeout(() => {
+      if (token !== hitToken) return;
+      stage.classList.remove('shake');
+      toast.classList.remove('show');
+      resetPlayer();
+      respawnHazards();
+      state = 'playing';
+    }, 1600);
+  }
+
+  function flashToast(main, sub, tone, ms) {
+    toastMain.textContent = main;
+    toastSub.textContent = sub;
+    toast.classList.toggle('good', tone === 'good');
+    toast.classList.add('show');
+    const token = ++hitToken;
+    window.setTimeout(() => {
+      if (token !== hitToken) return;
+      toast.classList.remove('show');
+    }, ms);
+  }
+
+  /* ---------- cs question shortcut ---------- */
+
+  function shuffle(list) {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = list[i];
+      list[i] = list[j];
+      list[j] = t;
+    }
+    return list;
+  }
+
+  function nextQuestion() {
+    if (!quizDeck.length) quizDeck = shuffle(QUESTIONS.map((q, i) => i));
+    return QUESTIONS[quizDeck.pop()];
+  }
+
+  function openQuiz() {
+    if (state !== 'playing' || quizUsed || !maze) return;
+    quizUsed = true;
+    quizBtn.disabled = true;
+    quizBtn.textContent = 'question used this level';
+
+    currentQuestion = nextQuestion();
+    answering = false;
+    quizQ.textContent = currentQuestion.q;
+    quizFeedback.textContent = '';
+    quizFeedback.className = 'quiz-feedback';
+    quizClose.textContent = 'back to the maze';
+    quizOptions.innerHTML = '';
+
+    shuffle(currentQuestion.a.map((text, i) => i)).forEach((i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'quiz-opt';
+      btn.dataset.i = String(i);
+      btn.textContent = currentQuestion.a[i];
+      btn.addEventListener('click', () => answerQuiz(i, btn));
+      quizOptions.appendChild(btn);
+    });
+
+    held.length = 0;
+    pressPoint = null;
+    state = 'quiz';
+    quizEl.hidden = false;
+  }
+
+  function answerQuiz(pick, btn) {
+    if (answering || !currentQuestion) return;
+    answering = true;
+    const right = currentQuestion.c;
+    const buttons = Array.prototype.slice.call(quizOptions.children);
+    for (const b of buttons) {
+      b.disabled = true;
+      if (Number(b.dataset.i) === right) b.classList.add('right');
+    }
+
+    if (pick === right) {
+      quizFeedback.textContent = 'Correct! One step and the cake is yours.';
+      quizFeedback.className = 'quiz-feedback';
+      quizClose.textContent = 'walk to the cake';
+      window.setTimeout(() => {
+        if (state !== 'quiz') return;
+        closeQuiz();
+        teleportToCake();
+      }, 800);
+    } else {
+      btn.classList.add('wrong');
+      quizFeedback.textContent = 'Not quite. The answer is: ' + currentQuestion.a[right];
+      quizFeedback.className = 'quiz-feedback bad';
+      window.setTimeout(() => {
+        if (state === 'quiz') closeQuiz();
+      }, 1700);
+    }
+  }
+
+  function closeQuiz() {
+    quizEl.hidden = true;
+    currentQuestion = null;
+    answering = false;
+    if (state === 'quiz') state = 'playing';
+  }
+
+  function farCell(from, dist) {
+    for (let i = 0; i < 200; i++) {
+      const cell = maze.cells[Math.floor(Math.random() * maze.cells.length)];
+      if (cell === maze.startCell || cell === maze.exitCell || cell.trap) continue;
+      if (Math.abs(cell.c - from.c) + Math.abs(cell.r - from.r) < dist) continue;
+      return cell;
+    }
+    return null;
+  }
+
+  function calmHazards(target) {
+    for (const m of monsters) {
+      if (Math.abs(m.c - target.c) + Math.abs(m.r - target.r) > 3) continue;
+      const cell = farCell(target, 5);
+      if (!cell) continue;
+      m.c = cell.c;
+      m.r = cell.r;
+      m.moving = false;
+      m.t = 0;
+      m.wait = 0.6;
+    }
+    for (const b of bombs) {
+      if (b.state !== 'idle') continue;
+      if (Math.abs(b.c - target.c) + Math.abs(b.r - target.r) > 2) continue;
+      b.fuse = Math.max(b.fuse, 7);
+      b.total = Math.max(b.total, b.fuse);
+    }
+  }
+
+  function teleportToCake() {
+    if (!maze) return;
+    const target = maze.solution[Math.max(0, maze.solution.length - 2)];
+    player.c = target.c;
+    player.r = target.r;
+    player.moving = false;
+    player.t = 0;
+    player.dir = null;
+    held.length = 0;
+    pressPoint = null;
+    calmHazards(target);
+    graceUntil = performance.now() + 1400;
+    flashToast('Correct! One step to the cake.', 'the question was the shortcut', 'good', 2300);
+    state = 'playing';
+  }
+
+  function win() {
+    state = 'won';
+    held.length = 0;
+    pressPoint = null;
+    const last = levelIndex === LEVELS.length - 1;
+    const secs = Math.max(1, Math.round((performance.now() - levelStartedAt) / 1000));
+    const hitLine = splats === 0
+      ? 'Clean run: no traps, no monsters, no bombs.'
+      : splats === 1
+        ? 'One little splat along the way.'
+        : splats + ' spectacular splats along the way.';
+
+    winKicker.textContent = last
+      ? 'all ten mazes cleared'
+      : 'level ' + (levelIndex + 1) + ' of ' + LEVELS.length + ' cleared';
+    winMsg.textContent = hitLine + ' ' + secs + ' seconds.';
+    winSmall.textContent = last
+      ? 'Ten mazes, every monster, every fuse. Happy birthday, properly.'
+      : 'Next one is bigger. Obviously.';
+    nextLevelBtn.textContent = last ? 'play from level 1' : 'next level →';
+
+    gameScreen.classList.remove('active');
+    winScreen.classList.add('active');
+    spawnConfetti();
+  }
+
+  function startLevel(index) {
+    winScreen.classList.remove('active');
+    cardScreen.classList.remove('active');
+    gameScreen.classList.add('active');
+    confetti.innerHTML = '';
+    loadLevel(index);
+    state = 'playing';
+    levelStartedAt = performance.now();
+    requestAnimationFrame(resizeCanvas);
+  }
+
+  /* ---------- confetti ---------- */
+
+  const CONFETTI_COLORS = ['#f2c94c', '#2f8f5a', '#ffb3c1', '#d92b2b', '#ffe9a3', '#7bd389'];
+
+  function spawnConfetti() {
+    confetti.innerHTML = '';
+    for (let i = 0; i < 70; i++) {
+      const piece = document.createElement('i');
+      piece.style.left = (Math.random() * 100) + '%';
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.width = (6 + Math.random() * 6) + 'px';
+      piece.style.height = (9 + Math.random() * 9) + 'px';
+      piece.style.animationDuration = (2.6 + Math.random() * 2.6) + 's';
+      piece.style.animationDelay = (Math.random() * 2.4) + 's';
+      confetti.appendChild(piece);
+    }
+  }
+
+  /* ---------- input ---------- */
+
+  const KEYMAP = {
+    ArrowUp: 'n', ArrowDown: 's', ArrowLeft: 'w', ArrowRight: 'e',
+    w: 'n', a: 'w', s: 's', d: 'e',
+    W: 'n', A: 'w', S: 's', D: 'e'
+  };
+
+  function pressDir(dir) {
+    if (held.indexOf(dir) < 0) held.push(dir);
+  }
+  function releaseDir(dir) {
+    const i = held.indexOf(dir);
+    if (i >= 0) held.splice(i, 1);
+  }
+
+  function dirFromPoint(clientX, clientY) {
+    const rect = stage.getBoundingClientRect();
+    if (rect.width < 4 || !maze) return null;
+    const p = playerPixel();
+    const px = rect.left + (p.x / LOGICAL_W) * rect.width;
+    const py = rect.top + (p.y / LOGICAL_H) * rect.height;
+    const dx = clientX - px;
+    const dy = clientY - py;
+    const dead = Math.max(6, rect.width * 0.02);
+    if (Math.abs(dx) < dead && Math.abs(dy) < dead) return null;
+    return Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'e' : 'w') : (dy > 0 ? 's' : 'n');
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (state === 'quiz') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeQuiz();
+      }
+      return;
+    }
+    if (state === 'card' && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      openCard.click();
+      return;
+    }
+    if (state === 'won' && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      nextLevelBtn.click();
+      return;
+    }
+    const dir = KEYMAP[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    if (state !== 'playing') return;
+    pressDir(dir);
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const dir = KEYMAP[e.key];
+    if (dir) releaseDir(dir);
+  });
+
+  window.addEventListener('blur', () => {
+    held.length = 0;
+    pressPoint = null;
+  });
+
+  document.querySelectorAll('.pad-btn').forEach((btn) => {
+    const dir = btn.dataset.dir;
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (state === 'playing') pressDir(dir);
+    });
+    const stop = (e) => {
+      e.preventDefault();
+      releaseDir(dir);
+    };
+    btn.addEventListener('pointerup', stop);
+    btn.addEventListener('pointercancel', stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  });
+
+  // press-and-hold anywhere on the maze: the man walks in that direction
+  stage.addEventListener('pointerdown', (e) => {
+    if (state !== 'playing') return;
+    pressPoint = { x: e.clientX, y: e.clientY };
+    e.preventDefault();
+  });
+
+  stage.addEventListener('pointermove', (e) => {
+    if (!pressPoint || state !== 'playing') return;
+    pressPoint = { x: e.clientX, y: e.clientY };
+  });
+
+  const endPress = () => { pressPoint = null; };
+  window.addEventListener('pointerup', endPress);
+  window.addEventListener('pointercancel', endPress);
+
+  /* ---------- screens ---------- */
+
+  openCard.addEventListener('click', () => {
+    if (opening) return;
+    opening = true;
+    openCard.classList.add('open');
+    window.setTimeout(() => {
+      cardScreen.classList.remove('active');
+      gameScreen.classList.add('active');
+      confetti.innerHTML = '';
+      loadLevel(levelIndex);
+      state = 'playing';
+      levelStartedAt = performance.now();
+      requestAnimationFrame(resizeCanvas);
+    }, 850);
+  });
+
+  quizBtn.addEventListener('click', openQuiz);
+  quizClose.addEventListener('click', closeQuiz);
+  quizSkip.addEventListener('click', closeQuiz);
+
+  document.getElementById('reset-run').addEventListener('click', () => {
+    if (state === 'card') return;
+    loadLevel(levelIndex);
+    state = 'playing';
+    levelStartedAt = performance.now();
+    requestAnimationFrame(resizeCanvas);
+  });
+
+  nextLevelBtn.addEventListener('click', () => {
+    startLevel(levelIndex === LEVELS.length - 1 ? 0 : levelIndex + 1);
+  });
+
+  document.getElementById('again').addEventListener('click', () => {
+    startLevel(levelIndex);
+  });
+
+  document.getElementById('to-card').addEventListener('click', () => {
+    winScreen.classList.remove('active');
+    gameScreen.classList.remove('active');
+    cardScreen.classList.add('active');
+    confetti.innerHTML = '';
+    opening = false;
+    openCard.classList.remove('open');
+    held.length = 0;
+    pressPoint = null;
+    state = 'card';
+  });
+
+  /* ---------- go ---------- */
+
+  loadLevel(0);
+  resizeCanvas();
+  let lastTick = performance.now();
+  requestAnimationFrame(function loop(now) {
+    const dt = Math.min(0.05, Math.max(0, (now - lastTick) / 1000));
+    lastTick = now;
+    update(dt);
+    draw(now / 1000);
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>
