@@ -279,36 +279,6 @@
     cursor: pointer;
   }
 
-  .pad {
-    display: grid;
-    grid-template-columns: repeat(3, 50px);
-    grid-template-rows: repeat(3, 50px);
-    gap: 4px;
-    margin: 0 auto;
-  }
-  .pad-up { grid-area: 1 / 2; }
-  .pad-left { grid-area: 2 / 1; }
-  .pad-right { grid-area: 2 / 3; }
-  .pad-down { grid-area: 3 / 2; }
-  .pad-btn {
-    display: grid;
-    place-items: center;
-    font-family: inherit;
-    font-size: 17px;
-    color: var(--green-deep);
-    background: var(--yellow-soft);
-    border: 2px solid var(--green-deep);
-    border-radius: 10px;
-    cursor: pointer;
-    touch-action: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .pad-btn:active { transform: translateY(1px); background: var(--yellow); }
-
-  @media (hover: hover) and (pointer: fine) {
-    .pad { display: none; }
-  }
-
   .tiny-actions {
     display: flex;
     flex-wrap: wrap;
@@ -471,13 +441,7 @@
     </div>
 
     <div class="controls">
-      <div class="pad" id="pad" aria-label="Movement controls">
-        <button type="button" class="pad-btn pad-up" data-dir="n" aria-label="Move up">▲</button>
-        <button type="button" class="pad-btn pad-left" data-dir="w" aria-label="Move left">◀</button>
-        <button type="button" class="pad-btn pad-right" data-dir="e" aria-label="Move right">▶</button>
-        <button type="button" class="pad-btn pad-down" data-dir="s" aria-label="Move down">▼</button>
-      </div>
-      <p class="tip" id="tip">tap the maze in the direction you want to go · or use arrow keys / WASD</p>
+      <p class="tip" id="tip">press and hold the maze in the direction you want to go · arrow keys / WASD on a keyboard</p>
       <div class="tiny-actions">
         <button type="button" class="linkish" id="quiz-btn">answer a question → skip to the cake</button>
         <span class="dot" aria-hidden="true">·</span>
@@ -1245,6 +1209,62 @@
     return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e };
   }
 
+  function drawDirArrow(g, time) {
+    if (!pressPoint || state !== 'playing' || !maze) return;
+    const key = dirFromPoint(pressPoint.x, pressPoint.y);
+    if (!key) return;
+    const dir = maze.dirs.find((d) => d.key === key);
+    const cell = maze.at(player.c, player.r);
+    if (!dir || !cell) return;
+
+    const blocked = !!cell[key] || !maze.at(player.c + dir.dc, player.r + dir.dr);
+    const p = playerPixel();
+    const pulse = 1 + Math.sin(time * 9) * 0.05;
+
+    g.save();
+    g.translate(p.x + dir.dc * CELL * 0.62, p.y + dir.dr * CELL * 0.62);
+    g.rotate(Math.atan2(dir.dr, dir.dc));
+    g.scale(pulse, pulse);
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+
+    const ink = blocked ? '#d92b2b' : '#2f8f5a';
+    const head = blocked ? 'rgba(217, 43, 43, .2)' : 'rgba(242, 201, 76, .95)';
+
+    // shaft
+    g.beginPath();
+    g.moveTo(-CELL * 0.2, 0);
+    g.lineTo(CELL * 0.06, 0);
+    g.lineWidth = Math.max(3, CELL * 0.11);
+    g.strokeStyle = ink;
+    g.stroke();
+
+    // arrow head
+    g.beginPath();
+    g.moveTo(CELL * 0.27, 0);
+    g.lineTo(CELL * 0.02, -CELL * 0.2);
+    g.lineTo(CELL * 0.02, CELL * 0.2);
+    g.closePath();
+    g.fillStyle = head;
+    g.fill();
+    g.lineWidth = Math.max(2, CELL * 0.07);
+    g.strokeStyle = ink;
+    g.stroke();
+
+    if (blocked) {
+      // a wall that way: cross the arrow out
+      g.beginPath();
+      g.moveTo(-CELL * 0.09, -CELL * 0.11);
+      g.lineTo(CELL * 0.13, CELL * 0.11);
+      g.moveTo(-CELL * 0.09, CELL * 0.11);
+      g.lineTo(CELL * 0.13, -CELL * 0.11);
+      g.lineWidth = Math.max(2, CELL * 0.06);
+      g.strokeStyle = 'rgba(217, 43, 43, .85)';
+      g.stroke();
+    }
+    g.restore();
+  }
+
   function drawMan(g, time) {
     const p = playerPixel();
     const walking = player.moving;
@@ -1537,6 +1557,7 @@
     for (const b of bombs) drawBomb(ctx, b, time);
     for (const m of monsters) drawMonster(ctx, m, time);
     for (const cell of revealed) drawTrapMark(ctx, cell);
+    drawDirArrow(ctx, time);
     drawMan(ctx, time);
   }
 
@@ -2000,23 +2021,8 @@
     pressPoint = null;
   });
 
-  document.querySelectorAll('.pad-btn').forEach((btn) => {
-    const dir = btn.dataset.dir;
-    btn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (state === 'playing') pressDir(dir);
-    });
-    const stop = (e) => {
-      e.preventDefault();
-      releaseDir(dir);
-    };
-    btn.addEventListener('pointerup', stop);
-    btn.addEventListener('pointercancel', stop);
-    btn.addEventListener('pointerleave', stop);
-    btn.addEventListener('contextmenu', (e) => e.preventDefault());
-  });
-
-  // press-and-hold anywhere on the maze: the man walks in that direction
+  // press-and-hold anywhere on the maze: the man walks in that direction,
+  // and an arrow on the board points the way
   stage.addEventListener('pointerdown', (e) => {
     if (state !== 'playing') return;
     pressPoint = { x: e.clientX, y: e.clientY };
